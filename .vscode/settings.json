@@ -1,12 +1,22 @@
 {
     "files.exclude": {
-        "**/.git": false,
+        "**/.git": true,
         "**/.svn": true,
         "**/.hg": true,
         "**/.DS_Store": true,
         "**/Thumbs.db": true,
         ".vscode": true,
-        "node_modules": true
+        "node_modules": true,
+        ".gitignore": true,
+        "eslint.config.js": true,
+        "babel.config.js": true,
+        "global.css": true,
+        "README.md": true,
+        "tailwind.config.js": true,
+        "tsconfig.json": true,
+        "metro.config.js": true,
+        "nativewind-env.d.ts": true,
+        "app.json": true
     },
     "explorerExclude.backup": {}
 }

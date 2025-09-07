@@ -3,7 +3,9 @@ import "../../global.css";
 import React from "react";
 import { StatusBar } from "expo-status-bar";
 
-const isLoggedIn = false; 
+const isLoggedIn = true; // hi Julius :)
+// du kannst true zu false wechseln um den login screen zu sehen
+// Dies wurde mit den Expo SDK 53 Protected Routes möglich gemacht
 
 export default function RootLayout() {
   return (
