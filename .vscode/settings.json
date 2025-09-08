@@ -1,4 +1,15 @@
 {
+    "colorize.languages": [
+    "javascript",
+    
+    "javascriptreact",
+    "typescript",
+    "typescriptreact",
+    "json",
+    "css",
+    "scss",
+    "html",
+    ],
     "files.exclude": {
         "**/.git": true,
         "**/.svn": true,
