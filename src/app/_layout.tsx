@@ -3,12 +3,10 @@ import "../../global.css";
 import React from "react";
 import { StatusBar } from "expo-status-bar";
 import { FadeIn } from "react-native-reanimated";
-
-const isLoggedIn = false; // hi Julius :)
-// du kannst true zu false wechseln um den login screen zu sehen
-// Dies wurde mit den Expo SDK 53 Protected Routes möglich gemacht
+import { useAuthStore } from "../utils/authStore";
 
 export default function RootLayout() {
+  const {isLoggedIn, isadmin, istempadmin,iswhitecard} = useAuthStore();
   return (
     <React.Fragment>
       <StatusBar style="auto" />

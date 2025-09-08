@@ -6,13 +6,13 @@ type UserState ={
     isadmin: boolean;
     istempadmin: boolean;
     iswhitecard: boolean;
-    loggedIn: () => void;
+    logIn: () => void;
     WhiteCardIn: () => void;
     WhiteCardOut: () => void;
-    loggedOut: () => void;
+    logOut: () => void;
 };
 
-export const useAuthStore = create<UserState>((set) => ({
+export const useAuthStore = create (persist<UserState>((set) => ({
     isLoggedIn: false,
     isadmin: false,
     istempadmin: false,
@@ -33,7 +33,7 @@ export const useAuthStore = create<UserState>((set) => ({
             };
         });
     },
-    loggedIn: () => {
+    logIn: () => {
         set((state) => {
             return { 
                 ...state, 
@@ -41,16 +41,25 @@ export const useAuthStore = create<UserState>((set) => ({
              };
         });
     },
-    loggedOut: () => {
+    logOut: () => {
         set((state) => {
             return { 
                 ...state, 
                 isLoggedIn: false, 
              };
-        })
+        });
     },
-
-}));
+    }),
+    {
+        name: "auth-store", 
+        storage: createJSONStorage(() => ({
+            setItem,
+            getItem,
+            removeItem: deleteItemAsync,
+        }))
+    },
+  ),
+);
 
 //hallo Julius :)
 //ich arbeiter hier gerade am UserStateManagement

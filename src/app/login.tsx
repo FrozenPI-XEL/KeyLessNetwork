@@ -1,8 +1,8 @@
-// LoginForm.tsx
 import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, Animated } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuthStore } from "../utils/authStore";
 
 type FormData = {
   username: string;
@@ -10,15 +10,18 @@ type FormData = {
 };
 
 export default function LoginForm() {
+  const {logIn} = useAuthStore();
   const { control, handleSubmit } = useForm<FormData>();
   const [isLocked, setIsLocked] = useState(false);
-  const [dbUser] = useState({ username: "admin", password: "2q67" }); // Fake DB
+  const [dbUser] = useState
+    ({ username: "admin", password: "1234" }); // Fake DB
   const [error, setError] = useState<string | null>(null);
 
   const onSubmit = (data: FormData) => {
     if (data.username === dbUser.username && data.password === dbUser.password) {
       setIsLocked(true);
       setError(null);
+      logIn();
     } else {
       setError(" Benutzername oder Passwort falsch!");
     }
@@ -27,7 +30,7 @@ export default function LoginForm() {
   return (
     <View className="flex-1 bg-slate-900 items-center justify-center px-6">
 
-      {/* USERNAME */}
+      {/* Username */}
       <Controller
         control={control}
         name="username"
@@ -43,7 +46,7 @@ export default function LoginForm() {
         )}
       />
 
-      {/* PASSWORD */}
+      {/* Passwort */}
       <Controller
         control={control}
         name="password"
@@ -59,10 +62,10 @@ export default function LoginForm() {
         )}
       />
 
-      {/* ERROR */}
+      {/* Fehler */}
       {error && <Text className="text-red-400 mb-3">{error}</Text>}
 
-      {/* BUTTON */}
+      {/* LoginButton */}
       <TouchableOpacity
         className="flex-row items-center bg-indigo-500 px-6 py-3 rounded-xl mt-3"
         onPress={handleSubmit(onSubmit)}
@@ -76,7 +79,7 @@ export default function LoginForm() {
   );
 }
 
-/** FLOATING LABEL INPUT */
+/* schwebendes Label Input */
 const FloatingInput = ({
   label,
   value,
@@ -132,3 +135,5 @@ const FloatingInput = ({
     </View>
   );
 };
+
+//TODO: Sanitize inputs um html und script injection zu verhindern
