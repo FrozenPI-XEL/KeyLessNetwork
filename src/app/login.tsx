@@ -1,75 +1,66 @@
-import React from 'react';
-import { useForm } from 'react-hook-form';
+import React from "react";
+import { View, TextInput, Text, Pressable } from "react-native";
+import { useForm, Controller } from "react-hook-form";
 
-const sanitizeInput = (value: string) => {
-  // Entfernt einfache HTML-Tags wie <script> oder <div>
-  return value.replace(/<[^>]*>?/gm, '');
+const sanitizeTextInput = (value: string) => {
+  return value.replace(/<[^>]*>?/gm, "");
 };
 
-const Login = () => {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    setValue,
-  } = useForm();
+export default function Login() {
+  const { control, handleSubmit } = useForm();
 
   const onSubmit = (data: any) => {
-    console.log('Saubere Daten:', data);
+    console.log("Saubere Daten:", data);
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col justify-center p-4 max-w-md mx-auto">
+    <View style={{ flex: 1, justifyContent: "center", padding: 16 }}>
       {/* Benutzername */}
-      <input
-        type="text"
-        placeholder="Benutzername"
-        {...register('username', {
-          required: 'Benutzername ist erforderlich',
-          validate: (value) => {
-            const sanitized = sanitizeInput(value);
-            return sanitized === value || 'HTML oder Script-Tags sind nicht erlaubt';
-          },
-        })}
-        className="border p-2 mb-1 w-full"
-        onBlur={(e) => {
-          const sanitized = sanitizeInput(e.target.value);
-          setValue('username', sanitized); // Input bereinigen
-        }}
+      <Controller
+        control={control}
+        name="username"
+        rules={{ required: "Benutzername ist erforderlich" }}
+        render={({ field: { onChange, value }, fieldState: { error } }) => (
+          <>
+            <TextInput
+              style={{ borderWidth: 1, marginBottom: 5, padding: 8 }}
+              placeholder="Benutzername"
+              value={value}
+              onChangeText={(text) => onChange(sanitizeTextInput(text))}
+            />
+            {error && <Text style={{ color: "red" }}>{error.message}</Text>}
+          </>
+        )}
       />
-      {errors.username && (
-        <span className="text-red-500 text-sm mb-4">{errors.username.message}</span>
-      )}
 
       {/* Passwort */}
-      <input
-        type="password"
-        placeholder="Passwort"
-        {...register('password', {
-          required: 'Passwort ist erforderlich',
-          validate: (value) => {
-            const sanitized = sanitizeInput(value);
-            return sanitized === value || 'HTML oder Script-Tags sind nicht erlaubt';
-          },
-        })}
-        className="border p-2 mb-1 w-full"
-        onBlur={(e) => {
-          const sanitized = sanitizeInput(e.target.value);
-          setValue('password', sanitized);
-        }}
+      <Controller
+        control={control}
+        name="password"
+        rules={{ required: "Passwort ist erforderlich" }}
+        render={({ field: { onChange, value }, fieldState: { error } }) => (
+          <>
+            <TextInput
+              style={{ borderWidth: 1, marginBottom: 5, padding: 8 }}
+              placeholder="Passwort"
+              secureTextEntry
+              value={value}
+              onChangeText={(text) => onChange(sanitizeTextInput(text))}
+            />
+            {error && <Text style={{ color: "red" }}>{error.message}</Text>}
+          </>
+        )}
       />
-      {errors.password && (
-        <span className="text-red-500 text-sm mb-4">{errors.password.message}</span>
-      )}
 
       {/* Submit */}
-      <button type="submit" className="bg-blue-500 text-white p-2 w-full">
-        Login
-      </button>
-    </form>
+      <Pressable
+        style={{ backgroundColor: "blue", padding: 12, marginTop: 10 }}
+        onPress={handleSubmit(onSubmit)}
+      >
+        <Text style={{ color: "white", textAlign: "center" }}>Login</Text>
+      </Pressable>
+    </View>
   );
-};
-
-export default Login;
+}
 
 

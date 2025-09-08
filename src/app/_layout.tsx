@@ -15,9 +15,7 @@ export default function RootLayout() {
         <Stack.Protected guard={isLoggedIn}>
           <Stack.Screen name="(tabs)" options={{headerShown: false}}/>
         </Stack.Protected>
-        <Stack.Protected guard={!isLoggedIn}>
-          <Stack.Screen name="test"/>
-        </Stack.Protected> 
+          <Stack.Screen name="login"/>
       </Stack>
     </React.Fragment>
   );
