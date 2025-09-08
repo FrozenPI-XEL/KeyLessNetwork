@@ -1,9 +1,9 @@
 import {Tabs} from "expo-router"
 
 export default function TabsLayout(){
-   return<Tabs>
+   return<Tabs initialRouteName="index">
       <Tabs.Screen name="admin" options={{title:"Admin"}}/>
-      <Tabs.Screen name="Home" options={{headerShown: false}}/>
+      <Tabs.Screen name="index"  options={{title: 'Home',headerShown: false}} />
       <Tabs.Screen name="profile" options={{title:"Mein Account"}}/>
    </Tabs>;
 }
