@@ -42,14 +42,15 @@ export const useAuthStore = create (persist<UserState>((set) => ({
         });
     },
     logOut: () => {
-        set((state) => {
-            return { 
-                ...state, 
-                isLoggedIn: false, 
-             };
-        });
-    },
-    }),
+  set(() => ({
+    isLoggedIn: false,
+    isadmin: false,
+    istempadmin: false,
+    iswhitecard: false,
+  }));
+},
+
+}), 
     {
         name: "auth-store", 
         storage: createJSONStorage(() => ({

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, Text, TextInput, TouchableOpacity, Animated } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../utils/authStore";
+import users from "../LokalDB/users.json"; // Lokale JSON-Datei
 
 type FormData = {
   username: string;
@@ -10,41 +11,56 @@ type FormData = {
 };
 
 export default function LoginForm() {
-  const {logIn} = useAuthStore();
-  const { control, handleSubmit } = useForm<FormData>();
+  const { logIn } = useAuthStore();
+  const { control, handleSubmit, formState: { errors } } = useForm<FormData>();
   const [isLocked, setIsLocked] = useState(false);
-  const [dbUser] = useState
-    ({ username: "admin", password: "1234" }); // Fake DB
   const [error, setError] = useState<string | null>(null);
+  const [sichtbar, setSichtbar] = useState<boolean>(true);
 
   const onSubmit = (data: FormData) => {
-    if (data.username === dbUser.username && data.password === dbUser.password) {
+    const foundUser = users.find(
+      (u) => u.username === data.username && u.password === data.password
+    );
+
+    if (foundUser) {
       setIsLocked(true);
       setError(null);
+
       logIn();
+
+      // Zustand konsistent setzen
+      useAuthStore.setState({
+        isadmin: !!foundUser.isadmin,
+        iswhitecard: !!foundUser.iswhitecard,
+      });
     } else {
-      setError(" Benutzername oder Passwort falsch!");
+      setIsLocked(false);
+      setError("Benutzername oder Passwort falsch!");
     }
   };
 
   return (
     <View className="flex-1 bg-slate-900 items-center justify-center px-6">
-
       {/* Username */}
       <Controller
         control={control}
         name="username"
         rules={{ required: "Benutzername ist erforderlich" }}
         render={({ field: { onChange, value } }) => (
-          <FloatingInput
-            label="Benutzername"
-            icon="person"
-            value={value}
-            onChangeText={onChange}
-            secureTextEntry={false}
-          />
+          <View className="px-4 border-slate-600 w-full">
+            <FloatingInput
+              label="Benutzername"
+              icon="person"
+              value={value}
+              onChangeText={onChange}
+              secureTextEntry={false}
+            />
+          </View>
         )}
       />
+      {errors.username && (
+        <Text className="text-red-400">{errors.username.message}</Text>
+      )}
 
       {/* Passwort */}
       <Controller
@@ -52,18 +68,37 @@ export default function LoginForm() {
         name="password"
         rules={{ required: "Passwort ist erforderlich" }}
         render={({ field: { onChange, value } }) => (
-          <FloatingInput
-            label="Passwort"
-            icon="lock-closed"
-            value={value}
-            onChangeText={onChange}
-            secureTextEntry
-          />
+          <View className="flex-row items-center px-4 border-slate-600 w-full">
+            <View className="flex-1">
+              <FloatingInput
+                label="Passwort"
+                icon="lock-closed"
+                value={value}
+                onChangeText={onChange}
+                secureTextEntry={sichtbar}
+              />
+            </View>
+
+            {/* Sichtbarkeit umschalten */}
+            <TouchableOpacity
+              onPress={() => setSichtbar(!sichtbar)}
+              className="absolute right-4 top-3"
+            >
+              <Ionicons
+                name={sichtbar ? "eye-off" : "eye"}
+                size={22}
+                color="gray"
+              />
+            </TouchableOpacity>
+          </View>
         )}
       />
+      {errors.password && (
+        <Text className="text-red-400">{errors.password.message}</Text>
+      )}
 
-      {/* Fehler */}
-      {error && <Text className="text-red-400 mb-3">{error}</Text>}
+      {/* Fehler von der Login-Prüfung */}
+      {error && <Text className="text-red-400">{error}</Text>}
 
       {/* LoginButton */}
       <TouchableOpacity
@@ -74,12 +109,16 @@ export default function LoginForm() {
         <Text className="text-white font-semibold text-base ml-2">Confirm</Text>
       </TouchableOpacity>
 
-      {isLocked && <Text className="text-green-400 mt-5 text-lg">✅ Erfolgreich eingeloggt!</Text>}
+      {isLocked && (
+        <Text className="text-green-400 mt-5 text-lg">
+          ✅ Erfolgreich eingeloggt!
+        </Text>
+      )}
     </View>
   );
 }
 
-/* schwebendes Label Input */
+/* Schwebendes Label Input */
 const FloatingInput = ({
   label,
   value,
@@ -94,7 +133,7 @@ const FloatingInput = ({
   icon: keyof typeof Ionicons.glyphMap;
 }) => {
   const [isFocused, setIsFocused] = useState(false);
-  const animatedValue = new Animated.Value(value ? 1 : 0);
+  const animatedValue = useRef(new Animated.Value(value ? 1 : 0)).current;
 
   useEffect(() => {
     Animated.timing(animatedValue, {
@@ -130,10 +169,10 @@ const FloatingInput = ({
           onChangeText={onChangeText}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
+          autoCapitalize="none"
+          autoCorrect={false}
         />
       </View>
     </View>
   );
 };
-
-//TODO: Sanitize inputs um html und script injection zu verhindern
