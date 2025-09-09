@@ -163,7 +163,7 @@ const FloatingInput = ({
       <View className="flex-1">
         <Animated.Text style={labelStyle}>{label}</Animated.Text>
         <TextInput
-          className="h-10 text-base text-white"
+          className="h-10 text-xl text-white"
           value={value}
           secureTextEntry={secureTextEntry}
           onChangeText={onChangeText}

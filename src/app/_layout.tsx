@@ -5,7 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { useAuthStore } from "../utils/authStore";
 
 export default function RootLayout() {
-  const { isLoggedIn, isadmin } = useAuthStore();
+  const { isLoggedIn, isadmin, istempadmin } = useAuthStore();
 
   return (
     <>
@@ -29,7 +29,7 @@ export default function RootLayout() {
             name="(tabs)"
             options={{ headerShown: false }}
           />
-          {isadmin && (
+          {isadmin || istempadmin && (
             <Stack.Screen
               name="admin"
               options={{ title: "Admin Bereich" }}

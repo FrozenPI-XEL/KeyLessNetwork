@@ -1,12 +1,13 @@
 import { View } from "react-native";
-import { AppText } from "@/components/AppText";
+import { Text } from "react-native";
+import React from "react";
 
 export default function IndexScreen() {
   return (
-    <View className="justify-center flex-1 p-4" >
-      <AppText center>
+    <View className="justify-center flex-1 p-4 bg-slate-900" >
+      <Text className="text-white font-bold text-xl text-center">
         Home Screen //TODO: implement home screen
-      </AppText>
+      </Text>
     </View>
   );
 }
