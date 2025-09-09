@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity, FlatList, TextInput } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Picker}  from '@react-native-picker/picker';
 
 // Dummy Users – später aus DB / Zustand
 const dummyUsers = [
@@ -21,15 +22,18 @@ export default function AdminScreen() {
       <FlatList
         data={users}
         keyExtractor={(item) => item.id}
-        className="mb-8"
+        className="mb-6"
         renderItem={({ item }) => (
           <View className="bg-slate-800 p-4 rounded-xl mb-3 flex-row justify-between items-center">
             <View>
               <Text className="text-white font-semibold">{item.username}</Text>
               <Text className="text-gray-400 text-sm">{item.role}</Text>
-              <Text className="text-indigo-400 text-sm">
-                ⏳ {item.daysLeft} Tage übrig
-              </Text>
+              <View className="flex-row items-center mt-1 font-bold">
+                <Ionicons name="time" size={16} color="#6366f1" />
+                <Text className="text-indigo-400 text-sm">
+                 {item.daysLeft} Tage übrig
+                </Text>
+              </View>
             </View>
             <TouchableOpacity className="bg-red-500 p-2 rounded-lg">
               <Ionicons name="trash" size={20} color="white" />
@@ -56,7 +60,7 @@ export default function AdminScreen() {
         <View className="mb-4">
           <Text className="text-gray-400 mb-1">Passwort</Text>
           <View className="bg-slate-700 rounded-lg px-3 py-2">
-            <Text className="text-white">[Eingabe später]</Text>
+            <TextInput className="text-white"></TextInput>
           </View>
         </View>
 
@@ -64,7 +68,6 @@ export default function AdminScreen() {
         <View className="mb-4">
           <Text className="text-gray-400 mb-1">Rolle</Text>
           <View className="bg-slate-700 rounded-lg px-3 py-2">
-            <Text className="text-white">[Dropdown später]</Text>
           </View>
         </View>
 
@@ -72,7 +75,7 @@ export default function AdminScreen() {
         <View className="mb-4">
           <Text className="text-gray-400 mb-1">Login-Dauer (Tage)</Text>
           <View className="bg-slate-700 rounded-lg px-3 py-2">
-            <Text className="text-white">[Eingabe später]</Text>
+            <TextInput className="text-white"></TextInput>
           </View>
         </View>
 
