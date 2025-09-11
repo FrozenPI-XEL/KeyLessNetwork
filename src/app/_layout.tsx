@@ -2,7 +2,7 @@ import { Stack } from "expo-router";
 import "../../global.css";
 import React from "react";
 import { StatusBar } from "expo-status-bar";
-import { useAuthStore } from "../utils/authStore";
+import { useAuthStore } from "../store/authStore";
 
 export default function RootLayout() {
   const { isLoggedIn, isadmin, istempadmin } = useAuthStore();

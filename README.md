@@ -35,9 +35,17 @@ keylessnetwork/
 │   │   │       └── items/
 │   ├── components/
 │   │   ├── AppText.tsx
+│   │   ├── rollenauswahl.tsx
+│   │   ├── zeitauswahl.tsx
 │   │   └── Button.tsx
+│   ├── hooks/
+│   │   └── userService.ts
+│   ├── store/
+│   │   └── authStore.ts
 │   └── utils/
-│       └── cn.ts
+│       ├── cn.ts
+│       └── TestDB/
+│           └── users.json
 ```
 
 ## Erklärung der wichtigsten Dateien und Ordner

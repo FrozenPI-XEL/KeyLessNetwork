@@ -7,7 +7,8 @@ type UserState = {
   isadmin: boolean;
   istempadmin: boolean;
   iswhitecard: boolean;
-  logIn: () => void;
+  username?: string; // <--- hinzufügen
+  logIn: (username?: string) => void; // Username optional beim Login
   logOut: () => void;
   WhiteCardIn: () => void;
   WhiteCardOut: () => void;
@@ -20,11 +21,13 @@ export const useAuthStore = create(
       isadmin: false,
       istempadmin: false,
       iswhitecard: false,
+      username: undefined, // initial
 
-      logIn: () =>
+      logIn: (username?: string) =>
         set((state) => ({
           ...state,
           isLoggedIn: true,
+          username: username ?? state.username,
         })),
 
       logOut: () =>
@@ -33,19 +36,14 @@ export const useAuthStore = create(
           isadmin: false,
           istempadmin: false,
           iswhitecard: false,
+          username: undefined,
         })),
 
       WhiteCardIn: () =>
-        set((state) => ({
-          ...state,
-          istempadmin: true,
-        })),
+        set((state) => ({ ...state, istempadmin: true })),
 
       WhiteCardOut: () =>
-        set((state) => ({
-          ...state,
-          istempadmin: false,
-        })),
+        set((state) => ({ ...state, istempadmin: false })),
     }),
     {
       name: "auth-store",

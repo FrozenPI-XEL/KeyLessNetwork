@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, Modal, Animated } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useInteropClassName } from "expo-router/build/link/useLinkHooks";
 
 type SubscriptionTime = {
   months: number;
@@ -56,13 +57,15 @@ const BaseSubscriptionTimePicker: React.FC<
       <TouchableOpacity onPress={() => setModalVisible(true)}>
         <Animated.View
           style={withPulse ? { opacity: pulseAnim } : {}}
-          className={`p-1 rounded-lg items-center ${
-            withPulse && totalDays <= 3 ? "bg-red-500" : "bg-slate-800"
-          }`}
+          className={`p-1 rounded-lg items-center 
+            ${ withPulse && totalDays <= 3 ? "bg-red-500" : ""}
+            ${ withPulse  && totalDays > 3? "bg-slate-800" : ""}
+            ${ !withPulse  ? "bg-slate-700" : ""}
+             `}
         >
 
           {/* Text */}
-          {showSmallLabel && (
+          {withPulse && (
             <View className="flex-row items-center mt-1">
               <Ionicons
                 name="time"
@@ -74,6 +77,14 @@ const BaseSubscriptionTimePicker: React.FC<
                    text-white"
               >
                 {totalDays} Tage übrig
+              </Text>
+            </View>
+          )}
+          {!withPulse && (
+            <View className="flex-row items-center mt-1 h-5 ">
+              <Text
+                className="ml-1 text-sm font-bold text-white">
+                  {time.months}M {time.weeks}W {time.days}D
               </Text>
             </View>
           )}

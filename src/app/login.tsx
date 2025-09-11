@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { View, Text, TextInput, TouchableOpacity, Animated } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuthStore } from "../utils/authStore";
-import users from "../LokalDB/users.json"; // Lokale JSON-Datei
+import { useAuthStore } from "../store/authStore";
+import { useUserStore } from "../store/userStore"; // Neuer Import
 
 type FormData = {
   username: string;
@@ -12,12 +12,14 @@ type FormData = {
 
 export default function LoginForm() {
   const { logIn } = useAuthStore();
+  const users = useUserStore((s) => s.users); // Alle User aus Store
   const { control, handleSubmit, formState: { errors } } = useForm<FormData>();
   const [isLocked, setIsLocked] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sichtbar, setSichtbar] = useState<boolean>(true);
 
   const onSubmit = (data: FormData) => {
+    // Suche User im Store
     const foundUser = users.find(
       (u) => u.username === data.username && u.password === data.password
     );
@@ -26,12 +28,12 @@ export default function LoginForm() {
       setIsLocked(true);
       setError(null);
 
-      logIn();
+      logIn(foundUser.username);
 
-      // Zustand konsistent setzen
       useAuthStore.setState({
         isadmin: !!foundUser.isadmin,
         iswhitecard: !!foundUser.iswhitecard,
+        istempadmin: !!foundUser.istempadmin,
       });
     } else {
       setIsLocked(false);
@@ -47,20 +49,16 @@ export default function LoginForm() {
         name="username"
         rules={{ required: "Benutzername ist erforderlich" }}
         render={({ field: { onChange, value } }) => (
-          <View className="px-4 border-slate-600 w-full">
-            <FloatingInput
-              label="Benutzername"
-              icon="person"
-              value={value}
-              onChangeText={onChange}
-              secureTextEntry={false}
-            />
-          </View>
+          <FloatingInput
+            label="Benutzername"
+            icon="person"
+            value={value}
+            onChangeText={onChange}
+            secureTextEntry={false}
+          />
         )}
       />
-      {errors.username && (
-        <Text className="text-red-400">{errors.username.message}</Text>
-      )}
+      {errors.username && <Text className="text-red-400">{errors.username.message}</Text>}
 
       {/* Passwort */}
       <Controller
@@ -68,7 +66,7 @@ export default function LoginForm() {
         name="password"
         rules={{ required: "Passwort ist erforderlich" }}
         render={({ field: { onChange, value } }) => (
-          <View className="flex-row items-center px-4 border-slate-600 w-full">
+          <View className="flex-row items-center w-full">
             <View className="flex-1">
               <FloatingInput
                 label="Passwort"
@@ -78,29 +76,19 @@ export default function LoginForm() {
                 secureTextEntry={sichtbar}
               />
             </View>
-
-            {/* Sichtbarkeit umschalten */}
             <TouchableOpacity
               onPress={() => setSichtbar(!sichtbar)}
               className="absolute right-4 top-3"
             >
-              <Ionicons
-                name={sichtbar ? "eye-off" : "eye"}
-                size={22}
-                color="gray"
-              />
+              <Ionicons name={sichtbar ? "eye-off" : "eye"} size={22} color="gray" />
             </TouchableOpacity>
           </View>
         )}
       />
-      {errors.password && (
-        <Text className="text-red-400">{errors.password.message}</Text>
-      )}
+      {errors.password && <Text className="text-red-400">{errors.password.message}</Text>}
 
-      {/* Fehler von der Login-Prüfung */}
       {error && <Text className="text-red-400">{error}</Text>}
 
-      {/* LoginButton */}
       <TouchableOpacity
         className="flex-row items-center bg-indigo-500 px-6 py-3 rounded-xl mt-3"
         onPress={handleSubmit(onSubmit)}
@@ -110,22 +98,14 @@ export default function LoginForm() {
       </TouchableOpacity>
 
       {isLocked && (
-        <Text className="text-green-400 mt-5 text-lg">
-          ✅ Erfolgreich eingeloggt!
-        </Text>
+        <Text className="text-green-400 mt-5 text-lg">✅ Erfolgreich eingeloggt!</Text>
       )}
     </View>
   );
 }
 
-/* Schwebendes Label Input */
-const FloatingInput = ({
-  label,
-  value,
-  onChangeText,
-  secureTextEntry,
-  icon,
-}: {
+/* FloatingInput bleibt unverändert */
+const FloatingInput = ({ label, value, onChangeText, secureTextEntry, icon }: {
   label: string;
   value?: string;
   onChangeText: (text: string) => void;
@@ -146,14 +126,8 @@ const FloatingInput = ({
   const labelStyle = {
     position: "absolute" as const,
     left: 40,
-    top: animatedValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: [18, -8],
-    }),
-    fontSize: animatedValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: [16, 12],
-    }),
+    top: animatedValue.interpolate({ inputRange: [0, 1], outputRange: [18, -8] }),
+    fontSize: animatedValue.interpolate({ inputRange: [0, 1], outputRange: [16, 12] }),
     color: "#aaa",
   };
 

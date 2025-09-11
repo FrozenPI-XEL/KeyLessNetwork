@@ -1,7 +1,7 @@
 import {Tabs} from "expo-router"
 import { Stack } from "expo-router";
 import React from "react";
-import { useAuthStore } from "../../utils/authStore";
+import { useAuthStore } from "../../store/authStore";
 
 export default function TabsLayout(){
    const {isadmin,istempadmin} = useAuthStore();
@@ -11,7 +11,7 @@ export default function TabsLayout(){
                   borderTopColor: '#0f172b' }, 
                   tabBarInactiveTintColor: 'gray',
 
-     headerStyle: { backgroundColor: '#0f172b' },
+     headerStyle: { backgroundColor: '#1e293b' },
                   headerTintColor: '#fff', 
                   headerTitleStyle: { fontWeight: 'bold' }, 
                   headerTitleAlign: 'center' }}>

@@ -1,5 +1,5 @@
 import { View } from "react-native";
-import { useAuthStore } from "@/utils/authStore";
+import { useAuthStore } from "@/store/authStore";
 import { TouchableOpacity, Text } from "react-native";
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
