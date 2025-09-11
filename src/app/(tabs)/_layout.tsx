@@ -2,21 +2,19 @@ import {Tabs} from "expo-router"
 import { Stack } from "expo-router";
 import React from "react";
 import { useAuthStore } from "../../utils/authStore";
-import { set } from "react-hook-form";
-import { setStatusBarBackgroundColor } from "expo-status-bar";
-import { SearchBar } from "react-native-screens";
 
 export default function TabsLayout(){
    const {isadmin,istempadmin} = useAuthStore();
    return<Tabs initialRouteName="index"
    screenOptions={{tabBarActiveTintColor: '#0ea5e9',
     tabBarStyle: { backgroundColor: '#0f172b',
-     borderTopColor: '#0f172b' }, 
-     tabBarInactiveTintColor: 'gray', 
+                  borderTopColor: '#0f172b' }, 
+                  tabBarInactiveTintColor: 'gray',
+
      headerStyle: { backgroundColor: '#0f172b' },
-      headerTintColor: '#fff', 
-      headerTitleStyle: { fontWeight: 'bold' }, 
-      headerTitleAlign: 'center' }}>
+                  headerTintColor: '#fff', 
+                  headerTitleStyle: { fontWeight: 'bold' }, 
+                  headerTitleAlign: 'center' }}>
 
       <Stack.Protected guard={isadmin || istempadmin}>
 
@@ -28,15 +26,9 @@ export default function TabsLayout(){
 
       </Stack.Protected>
 
-      <Tabs.Screen name="index"  options={{title: 'Startseite', 
-            headerStyle: { backgroundColor: "#0f172b" },
-            headerTintColor: "#fff",
-            headerTitleStyle: { fontWeight: "bold" },
-            headerSearchBarOptions: {
-            placeholder: 'Suchen',
-            onChangeText: (event) => console.log(event.nativeEvent.text),
-            onSubmitEditing: (event) => console.log(event.nativeEvent.text),},
-            headerTitleAlign: "center"}} />
+      <Tabs.Screen name="index"  options={{ 
+            title: "Startseite",
+            headerShown: false }} />
 
       <Tabs.Screen name="profile" options={{title:"Mein Account", 
             headerStyle: { backgroundColor: "#0f172b" },
