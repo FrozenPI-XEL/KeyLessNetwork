@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, FlatList, TextInput } from "react-native";
+import { View, Text, TouchableOpacity, FlatList, TextInput, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SubscriptionTimePicker, SubscriptionTimePickerWithPulse } from "@/components/zeitauswahl";
 import RoleDropdown from "@/components/rollenauswahl";
 import { useUserStore, User } from "@/store/userStore";
 import { useAuthStore } from "@/store/authStore";
-import * as Notifications from "expo-notifications";
 
 export default function AdminScreen() {
   const users = useUserStore((s) => s.users);
@@ -19,6 +18,7 @@ export default function AdminScreen() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("User");
   const [subscriptionTime, setSubscriptionTime] = useState({ months: 0, weeks: 0, days: 0 });
+  const [subscriptionTimeKey, setSubscriptionTimeKey] = useState(0);
 
   // --- Neuer User hinzufügen ---
   const handleAddUser = () => {
@@ -37,32 +37,87 @@ export default function AdminScreen() {
     setPassword("");
     setRole("User");
     setSubscriptionTime({ months: 0, weeks: 0, days: 0 });
+
+    setSubscriptionTimeKey(prev => prev + 1);
   };
 
   // --- User löschen & Kick ---
   const deleteUserHandler = (id: number) => {
     const userToDelete = users.find((u) => u.id === id);
+    if (!userToDelete) return;
 
-    if (userToDelete?.username === currentUser) {
-      useAuthStore.getState().logOut();
+    // Letzter Admin Check
+    const adminCount = users.filter(u => u.isadmin).length;
+    if (userToDelete.isadmin && adminCount === 1) {
+      Alert.alert("Fehler", "Der letzte Admin kann nicht gelöscht werden!");
+      return; // Abbruch
     }
 
     deleteUser(id);
+
+    // Kick, wenn aktueller User gelöscht wird
+    if (userToDelete.username === currentUser) {
+      useAuthStore.getState().logOut();
+    }
   };
 
-
-
-  // --- Auto-delete bei 0 Tagen ---
+  // --- Auto-Abzug der Subscription alle 10 Sekunden ---
   useEffect(() => {
     const interval = setInterval(() => {
-      users.forEach((u) => {
-        if (u.subscription && u.subscription.months <= 0 && u.subscription.weeks <= 0 && u.subscription.days <= 0) {
-          deleteUserHandler(u.id);
+      useUserStore.getState().users.forEach((u) => {
+        if (!u.isadmin && !u.iswhitecard && u.subscription) {
+          let { months, weeks, days } = u.subscription;
+          days -= 1;
+          if (days < 0) {
+            weeks -= 1;
+            days = 6;
+          }
+          if (weeks < 0) {
+            months -= 1;
+            weeks = 3;
+          }
+
+          const subscriptionEnded = months <= 0 && weeks <= 0 && days <= 0;
+
+          if (subscriptionEnded) {
+            deleteUser(u.id);
+            if (useAuthStore.getState().username === u.username) {
+              useAuthStore.getState().logOut();
+            }
+          } else {
+            // Subscription aktualisieren
+            useUserStore.setState({
+              users: useUserStore.getState().users.map((usr) =>
+                usr.id === u.id ? { ...usr, subscription: { months, weeks, days } } : usr
+              ),
+            });
+          }
         }
       });
-    }, 60 * 1000); // z.B. jede Minute (nur Test)
+    }, 60000*60*24);
+
     return () => clearInterval(interval);
-  }, [users]);
+  }, []);
+
+  // --- Komponente für User-Picker ---
+  const UserSubscriptionPicker = ({ userId }: { userId: number }) => {
+    const user = useUserStore((s) => s.users.find(u => u.id === userId));
+    if (!user || !user.subscription) return null;
+
+    return (
+      <SubscriptionTimePickerWithPulse
+        initialTime={user.subscription}
+        onSave={(t) => {
+          useUserStore.setState({
+            users: useUserStore.getState().users.map(u =>
+              u.id === userId ? { ...u, subscription: t } : u
+            ),
+          });
+        }}
+        key={user.id} // erzwingt Re-render
+      />
+    );
+  };
 
   return (
     <View className="flex-1 bg-slate-900 p-6">
@@ -88,14 +143,10 @@ export default function AdminScreen() {
 
               {/* Subscription nur bei User & TempAdmin */}
               {(!item.isadmin && !item.iswhitecard) && (
-                <SubscriptionTimePickerWithPulse
-                  initialTime={{ months: 0, weeks: 0, days: 0 }}
-                  onSave={(t) => console.log("Mit Pulse:", t)}
-                />
+                <UserSubscriptionPicker userId={item.id} />
               )}
             </View>
 
-            
             <View className="flex-row gap-4 items-center">
               <TouchableOpacity onPress={() => promoteUser(item.id)} className="bg-green-500 p-3 rounded-lg">
                 <Ionicons name="star" size={20} color="white" />
@@ -118,28 +169,17 @@ export default function AdminScreen() {
           <Text className="text-white font-semibold text-xl ml-2">Neuer Nutzer</Text>
         </View>
 
-        {/* Username */}
         <View className="mb-4">
           <Text className="text-gray-400 mb-1">Benutzername</Text>
           <View className="bg-slate-700 rounded-lg px-3 py-2">
-            <TextInput
-              className="text-white"
-              value={username}
-              onChangeText={setUsername}
-            />
+            <TextInput className="text-white" value={username} onChangeText={setUsername} />
           </View>
         </View>
 
-        {/* Passwort */}
         <View className="mb-4">
           <Text className="text-gray-400 mb-1">Passwort</Text>
           <View className="bg-slate-700 rounded-lg px-3 py-2">
-            <TextInput
-              className="text-white"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
+            <TextInput className="text-white" value={password} onChangeText={setPassword} secureTextEntry />
           </View>
         </View>
 
@@ -148,11 +188,9 @@ export default function AdminScreen() {
 
         <Text className="text-gray-400 mb-1">Zeit</Text>
         <View className="bg-slate-700 rounded-lg px-3 py-2">
-          <SubscriptionTimePicker 
-          initialTime={subscriptionTime} 
-          onSave={(t) => setSubscriptionTime(t)}
-          />
-          </View>
+          <SubscriptionTimePicker  key={subscriptionTimeKey} initialTime={subscriptionTime} onSave={setSubscriptionTime} />
+        </View>
+
         <TouchableOpacity onPress={handleAddUser} className="flex-row items-center bg-indigo-500 px-6 py-3 rounded-xl mt-2 justify-center">
           <Ionicons name="add-circle-outline" size={22} color="white" />
           <Text className="text-white font-semibold text-base ml-2">Nutzer hinzufügen</Text>

@@ -84,7 +84,7 @@ const BaseSubscriptionTimePicker: React.FC<
             <View className="flex-row items-center mt-1 h-5 ">
               <Text
                 className="ml-1 text-sm font-bold text-white">
-                  {time.months}M {time.weeks}W {time.days}D
+                  {time.months}M {time.weeks}W {time.days}T
               </Text>
             </View>
           )}
