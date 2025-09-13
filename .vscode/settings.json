@@ -27,7 +27,8 @@
         "tsconfig.json": true,
         "metro.config.js": true,
         "nativewind-env.d.ts": true,
-        "app.json": true
+        "app.json": true,
+        "eas.json": true
     },
     "explorerExclude.backup": {}
 }
