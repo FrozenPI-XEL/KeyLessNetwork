@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, Modal, Animated } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useInteropClassName } from "expo-router/build/link/useLinkHooks";
 
 type SubscriptionTime = {
   months: number;
@@ -59,8 +58,8 @@ const BaseSubscriptionTimePicker: React.FC<
           style={withPulse ? { opacity: pulseAnim } : {}}
           className={`p-1 rounded-lg items-center 
             ${ withPulse && totalDays <= 3 ? "bg-red-500" : ""}
-            ${ withPulse  && totalDays > 3? "bg-slate-800" : ""}
-            ${ !withPulse  ? "bg-slate-700" : ""}
+            ${ withPulse  && totalDays > 3? "text-light-b2 dark:text-dark-b2" : ""}
+            ${ !withPulse  ? "text-light-b3 dark:text-dark-b3" : ""}
              `}
         >
 
@@ -83,7 +82,7 @@ const BaseSubscriptionTimePicker: React.FC<
           {!withPulse && (
             <View className="flex-row items-center mt-1 h-5 ">
               <Text
-                className="ml-1 text-sm font-bold text-white">
+                className="ml-1 text-sm font-bold text-light-t1 dark:text-dark-t1">
                   {time.months}M {time.weeks}W {time.days}T
               </Text>
             </View>
@@ -94,26 +93,26 @@ const BaseSubscriptionTimePicker: React.FC<
       {/* Modal */}
       <Modal transparent={true} visible={modalVisible} animationType="fade">
         <View className="flex-1 bg-black/70 justify-center items-center">
-          <View className="bg-slate-800 rounded-xl p-5 w-80 ">
+          <View className="bg-gray-100 dark:bg-slate-800 rounded-xl p-5 w-80 ">
             {(["months", "weeks", "days"] as (keyof SubscriptionTime)[]).map(
               (field) => (
                 <View
                   key={field}
                   className="flex-row items-center justify-between my-2"
                 >
-                  <Text className="text-white capitalize w-20 font-bold">{field}</Text>
+                  <Text className="text-light-t1 dark:text-dark-t1 capitalize w-20 font-bold">{field}</Text>
                   <TouchableOpacity
                     onPress={() => adjustTime(field, -1)}
-                    className="bg-gray-300 rounded-md px-3 py-1"
+                    className=" bg-light-t2 dark:bg-dark-t2 rounded-md px-3 py-1"
                   >
-                    <Text className="text-2xl font-bold">-</Text>
+                    <Text className="text-2xl font-bold text-light-t1 dark:text-dark-t1">-</Text>
                   </TouchableOpacity>
-                    <Text className="mx-3 text-lg font-bold text-white">{time[field]}</Text>
+                    <Text className="mx-3 text-lg font-bold text-light-t1 dark:text-dark-t1">{time[field]}</Text>
                   <TouchableOpacity
                     onPress={() => adjustTime(field, 1)}
-                    className="bg-gray-300 rounded-md px-3 py-1"
+                    className="bg-light-t2 dark:bg-dark-t2 rounded-md px-3 py-1"
                   >
-                    <Text className="text-lg font-bold">+</Text>
+                    <Text className="text-lg font-bold text-light-t1 dark:text-dark-t1">+</Text>
                   </TouchableOpacity>
                 </View>
               )
@@ -133,7 +132,7 @@ const BaseSubscriptionTimePicker: React.FC<
                 }}
                 className="bg-green-500 px-4 py-2 rounded-md"
               >
-                <Text className="text-white font-bold">Bestätigen</Text>
+                <Text className="text-light-t1 dark:text-dark-t1 font-bold">Bestätigen</Text>
               </TouchableOpacity>
             </View>
           </View>

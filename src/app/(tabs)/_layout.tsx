@@ -12,13 +12,13 @@ export default function TabsLayout() {
       initialRouteName="index"
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: "#0f172b",
-          borderTopColor: "#0f172b",
+          backgroundColor: "white dark:#0f172b",
+          borderTopColor: "white dark:#0f172b",
         },
-        tabBarInactiveTintColor: "gray",
+        tabBarInactiveTintColor: "black dark:gray",
         tabBarActiveTintColor: "#0ea5e9",
         headerStyle: { backgroundColor: "#1e293b" },
-        headerTintColor: "#fff",
+        headerTintColor: "black dark:white",
         headerTitleStyle: { fontWeight: "bold" },
         headerTitleAlign: "center",
       }}
@@ -31,10 +31,6 @@ export default function TabsLayout() {
             tabBarIcon: ({ color, size }) => (
               <MaterialIcons name="admin-panel-settings" size={size} color={color} />
             ),
-            headerStyle: { backgroundColor: "#0f172b" },
-            headerTintColor: "#fff",
-            headerTitleStyle: { fontWeight: "bold" },
-            headerTitleAlign: "center",
           }}
         />
       </Stack.Protected>
@@ -57,10 +53,6 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-sharp" size={size} color={color} />
           ),
-          headerStyle: { backgroundColor: "#0f172b" },
-          headerTintColor: "#fff",
-          headerTitleStyle: { fontWeight: "bold" },
-          headerTitleAlign: "center",
         }}
       />
     </Tabs>

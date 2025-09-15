@@ -12,8 +12,8 @@ export default function ProfileScreen() {
   const {logOut} = useAuthStore();
 
   return (
-    <View className="justify-center items-center  bg-slate-900 h-full " >
-        <Ionicons name="person" size={120} color="white" />
+    <View className="justify-center items-center  text-light-b1 dark:text-dark-b1 h-full " >
+        <Ionicons name="person" size={120} color="black dark:white" />
       <InfoCard/>
 
         <TouchableOpacity className=" flex-row mt-20 m-10 pt-1 pb-1 pl-6 pr-6 bg-red-500 rounded-lg justify-center items-center" onPress={logOut}>

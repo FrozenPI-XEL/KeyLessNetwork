@@ -23,7 +23,7 @@
         "babel.config.js": true,
         "global.css": true,
         "README.md": true,
-        "tailwind.config.js": true,
+        "tailwind.config.js": false,
         "tsconfig.json": true,
         "metro.config.js": true,
         "nativewind-env.d.ts": true,

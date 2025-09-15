@@ -6,7 +6,7 @@ import RoleDropdown from "@/components/rollenauswahl";
 import { useUserStore, User } from "@/store/userStore";
 import { useAuthStore } from "@/store/authStore";
 
-export default function AdminScreen() {
+export default function Admin() {
   const users = useUserStore((s) => s.users);
   const addUser = useUserStore((s) => s.addUser);
   const deleteUser = useUserStore((s) => s.deleteUser);
@@ -120,18 +120,18 @@ export default function AdminScreen() {
   };
 
   return (
-    <View className="flex-1 bg-slate-900 p-6">
-      <Text className="text-white text-2xl font-bold mb-6 text-center">Nutzerverwaltung</Text>
+    <View className="flex-1 text-light-b1 dark:text-dark-b1 p-6">
+      <Text className="text-light-t1 dark:text-dark-t1 text-2xl font-bold mb-6 text-center">Nutzerverwaltung</Text>
 
       {/* Liste */}
       <FlatList
         data={users}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
-          <View className="bg-slate-800 p-4 rounded-xl mb-3 flex-row justify-between items-center">
+          <View className=" p-4 rounded-xl mb-3 flex-row justify-between items-center">
             <View>
-              <Text className="text-white text-lg font-semibold">{item.username}</Text>
-              <Text className="text-gray-400 text-sm mb-3">
+              <Text className="text-light-t1 dark:text-dark-t1 text-lg font-semibold">{item.username}</Text>
+              <Text className="text-light-t2 dark:text-dark-t2 text-sm mb-3">
                 {item.isadmin
                   ? "Admin"
                   : item.istempadmin
@@ -163,37 +163,37 @@ export default function AdminScreen() {
       />
 
       {/* Neuer User */}
-      <View className="bg-slate-800 p-4 rounded-xl mt-4">
+      <View className="text-light-b2 dark:text-dark-b2 p-4 rounded-xl mt-4">
         <View className="flex-row items-center mb-2">
-          <Ionicons name="person-add" size={24} color="white" />
-          <Text className="text-white font-semibold text-xl ml-2">Neuer Nutzer</Text>
+          <Ionicons name="person-add" size={24} color="black dark:white" />
+          <Text className="text-light-t1 dark:text-dark-t1 font-semibold text-xl ml-2">Neuer Nutzer</Text>
         </View>
 
         <View className="mb-4">
-          <Text className="text-gray-400 mb-1">Benutzername</Text>
-          <View className="bg-slate-700 rounded-lg px-3 py-2">
-            <TextInput className="text-white" value={username} onChangeText={setUsername} />
+          <Text className="text-light-t2 dark:text-dark-t2 mb-1">Benutzername</Text>
+          <View className="text-light-b3 dark:text-dark-b3 rounded-lg px-3 py-2">
+            <TextInput className="text-light-t1 dark:text-dark-t1" value={username} onChangeText={setUsername} />
           </View>
         </View>
 
         <View className="mb-4">
-          <Text className="text-gray-400 mb-1">Passwort</Text>
-          <View className="bg-slate-700 rounded-lg px-3 py-2">
-            <TextInput className="text-white" value={password} onChangeText={setPassword} secureTextEntry />
+          <Text className="text-light-t2 dark:text-dark-t2 mb-1">Passwort</Text>
+          <View className="text-light-b3 dark:text-dark-b3 rounded-lg px-3 py-2">
+            <TextInput className="text-light-t1 dark:text-dark-t1" value={password} onChangeText={setPassword} secureTextEntry />
           </View>
         </View>
 
-        <Text className="text-gray-400 mb-1">Rolle</Text>
+        <Text className="text-light-t2 dark:text-dark-t2 mb-1">Rolle</Text>
         <RoleDropdown value={role} onChange={setRole} />
 
-        <Text className="text-gray-400 mb-1">Zeit</Text>
-        <View className="bg-slate-700 rounded-lg px-3 py-2">
+        <Text className="text-light-t2 dark:text-dark-t2 mb-1">Zeit</Text>
+        <View className="text-light-b3 dark:text-dark-b3 rounded-lg px-3 py-2">
           <SubscriptionTimePicker  key={subscriptionTimeKey} initialTime={subscriptionTime} onSave={setSubscriptionTime} />
         </View>
 
         <TouchableOpacity onPress={handleAddUser} className="flex-row items-center bg-indigo-500 px-6 py-3 rounded-xl mt-2 justify-center">
           <Ionicons name="add-circle-outline" size={22} color="white" />
-          <Text className="text-white font-semibold text-base ml-2">Nutzer hinzufügen</Text>
+          <Text className="text-light-t1 dark:text-dark-t1 font-semibold text-base ml-2">Nutzer hinzufügen</Text>
         </TouchableOpacity>
       </View>
     </View>

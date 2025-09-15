@@ -11,16 +11,16 @@ const RoleDropdown: React.FC<{ value: string; onChange: (role: string) => void }
       {/* Aktuelle Rolle */}
       <TouchableOpacity
         onPress={() => setOpen(true)}
-        className="bg-slate-700 p-2 rounded-lg"
+        className="text-light-b3 dark:text-dark-b3 p-2 rounded-lg"
       >
-        <Text className="text-lg text-white">{value}</Text>
+        <Text className="text-lg text-light-t1 dark:text-dark-t1">{value}</Text>
       </TouchableOpacity>
 
       {/* Dropdown Modal */}
       <Modal transparent={true} visible={open} animationType="fade">
         <View className="flex-1 bg-black/70 justify-center items-center">
-          <View className="bg-slate-700 rounded-xl p-5 w-72">
-            <Text className="text-xl font-semibold mb-3 text-white">Rolle auswählen</Text>
+          <View className="text-light-b3 dark:text-dark-b3 rounded-xl p-5 w-72">
+            <Text className="text-xl font-semibold mb-3 text-light-t1 dark:text-dark-t1">Rolle auswählen</Text>
 
             <FlatList
               data={roles}
@@ -33,7 +33,7 @@ const RoleDropdown: React.FC<{ value: string; onChange: (role: string) => void }
                     setOpen(false);
                   }}
                 >
-                  <Text className={`text-base ${item === value ? "font-bold text-xl text-sky-500" : "text-white text-lg"} `}>
+                  <Text className={`text-base ${item === value ? "font-bold text-xl text-sky-500" : "text-light-t1 dark:text-dark-t1 text-lg"} `}>
                     {item}
                   </Text>
                 </TouchableOpacity>
@@ -45,7 +45,7 @@ const RoleDropdown: React.FC<{ value: string; onChange: (role: string) => void }
               onPress={() => setOpen(false)}
               className="bg-red-500 mt-4 py-2 rounded-md"
             >
-              <Text className="text-center text-white">Cancel</Text>
+              <Text className="text-center text-light-t1 dark:text-dark-t1">Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>
