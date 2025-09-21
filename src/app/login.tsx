@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, Animated } from "react-native"
 import { useForm, Controller } from "react-hook-form";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../store/authStore";
-import { useUserStore } from "../store/userStore"; // Neuer Import
+import { useUserStore } from "../store/userStore"; 
 
 type FormData = {
   username: string;
@@ -12,14 +12,13 @@ type FormData = {
 
 export default function LoginForm() {
   const { logIn } = useAuthStore();
-  const users = useUserStore((s) => s.users); // Alle User aus Store
+  const users = useUserStore((s) => s.users); 
   const { control, handleSubmit, formState: { errors } } = useForm<FormData>();
   const [isLocked, setIsLocked] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sichtbar, setSichtbar] = useState<boolean>(true);
 
   const onSubmit = (data: FormData) => {
-    // Suche User im Store
     const foundUser = users.find(
       (u) => u.username === data.username && u.password === data.password
     );

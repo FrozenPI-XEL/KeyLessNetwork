@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity, ScrollView, Switch } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
-import { useTheme } from "@/providers/ThemeProvider"
+import { useTheme } from "@/components/ThemeContext"
 
 
 

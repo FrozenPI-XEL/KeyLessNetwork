@@ -3,7 +3,7 @@ import "../../global.css";
 import React from "react";
 import { StatusBar } from "expo-status-bar";
 import { useAuthStore } from "../store/authStore";
-import { ThemeProvider } from "@/providers/ThemeProvider"
+import { ThemeProvider } from "@/components/ThemeContext"
 
 export default function RootLayout() {
   const { isLoggedIn, isadmin, istempadmin } = useAuthStore();

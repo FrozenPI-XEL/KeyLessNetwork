@@ -22,7 +22,7 @@ const BaseSubscriptionTimePicker: React.FC<
 
   const totalDays = time.months * 30 + time.weeks * 7 + time.days;
 
-  //  Pulsieren wenn ≤ 3 Tage
+  //  Pulsieren wenn ≤ 3 Tage 
   useEffect(() => {
     if (withPulse && totalDays <= 3) {
       Animated.loop(
@@ -142,7 +142,6 @@ const BaseSubscriptionTimePicker: React.FC<
   );
 };
 
-// Exports
 export const SubscriptionTimePicker = (props: Props) => (
   <BaseSubscriptionTimePicker {...props} withPulse={false} showSmallLabel={false} />
 );
