@@ -7,8 +7,8 @@ type UserState = {
   isadmin: boolean;
   istempadmin: boolean;
   iswhitecard: boolean;
-  username?: string; // <--- hinzufügen
-  logIn: (username?: string) => void; // Username optional beim Login
+  username?: string; 
+  logIn: (username?: string) => void; 
   logOut: () => void;
   WhiteCardIn: () => void;
   WhiteCardOut: () => void;
