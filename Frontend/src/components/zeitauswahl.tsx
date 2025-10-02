@@ -58,8 +58,8 @@ const BaseSubscriptionTimePicker: React.FC<
           style={withPulse ? { opacity: pulseAnim } : {}}
           className={`p-1 rounded-lg items-center 
             ${ withPulse && totalDays <= 3 ? "bg-red-500" : ""}
-            ${ withPulse  && totalDays > 3? "text-light-b2 dark:text-dark-b2" : ""}
-            ${ !withPulse  ? "text-light-b3 dark:text-dark-b3" : ""}
+            ${ withPulse  && totalDays > 3? "text-dark-b2" : ""}
+            ${ !withPulse  ? "text-dark-b3" : ""}
              `}
         >
 
@@ -82,7 +82,7 @@ const BaseSubscriptionTimePicker: React.FC<
           {!withPulse && (
             <View className="flex-row items-center mt-1 h-5 ">
               <Text
-                className="ml-1 text-sm font-bold text-light-t1 dark:text-dark-t1">
+                className="ml-1 text-sm font-bold text-dark-t1">
                   {time.months}M {time.weeks}W {time.days}T
               </Text>
             </View>
@@ -93,26 +93,26 @@ const BaseSubscriptionTimePicker: React.FC<
       {/* Modal */}
       <Modal transparent={true} visible={modalVisible} animationType="fade">
         <View className="flex-1 bg-black/70 justify-center items-center">
-          <View className="bg-gray-100 dark:bg-slate-800 rounded-xl p-5 w-80 ">
+          <View className="bg-slate-800 rounded-xl p-5 w-80 ">
             {(["months", "weeks", "days"] as (keyof SubscriptionTime)[]).map(
               (field) => (
                 <View
                   key={field}
                   className="flex-row items-center justify-between my-2"
                 >
-                  <Text className="text-light-t1 dark:text-dark-t1 capitalize w-20 font-bold">{field}</Text>
+                  <Text className="text-dark-t1 capitalize w-20 font-bold">{field}</Text>
                   <TouchableOpacity
                     onPress={() => adjustTime(field, -1)}
-                    className=" bg-light-t2 dark:bg-dark-t2 rounded-md px-3 py-1"
+                    className=" bg-slate-600 rounded-md px-3 py-1"
                   >
-                    <Text className="text-2xl font-bold text-light-t1 dark:text-dark-t1">-</Text>
+                    <Text className="text-2xl font-bold text-dark-t1">-</Text>
                   </TouchableOpacity>
-                    <Text className="mx-3 text-lg font-bold text-light-t1 dark:text-dark-t1">{time[field]}</Text>
+                    <Text className="mx-3 text-lg font-bold text-dark-t1">{time[field]}</Text>
                   <TouchableOpacity
                     onPress={() => adjustTime(field, 1)}
-                    className="bg-light-t2 dark:bg-dark-t2 rounded-md px-3 py-1"
+                    className="bg-slate-600 rounded-md px-3 py-1"
                   >
-                    <Text className="text-lg font-bold text-light-t1 dark:text-dark-t1">+</Text>
+                    <Text className="text-lg font-bold text-dark-t1">+</Text>
                   </TouchableOpacity>
                 </View>
               )

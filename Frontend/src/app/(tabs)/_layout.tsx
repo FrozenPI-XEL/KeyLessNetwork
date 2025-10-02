@@ -12,13 +12,13 @@ export default function TabsLayout() {
       initialRouteName="index"
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: "white dark:#0f172b",
-          borderTopColor: "white dark:#0f172b",
+          backgroundColor: "#0f172b",
+          borderTopColor: "#0f172b",
         },
-        tabBarInactiveTintColor: "black dark:gray",
+        tabBarInactiveTintColor: "gray",
         tabBarActiveTintColor: "#0ea5e9",
-        headerStyle: { backgroundColor: "#1e293b" },
-        headerTintColor: "black dark:white",
+        headerStyle: { backgroundColor: "#0f172b" },
+        headerTintColor: "white",
         headerTitleStyle: { fontWeight: "bold" },
         headerTitleAlign: "center",
       }}

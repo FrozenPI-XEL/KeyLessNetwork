@@ -17,13 +17,13 @@ export default function InfoCard() {
     : "-";
 
   return (
-    <View className="text-light-b2 dark:text-dark-b2 p-5 rounded-xl m-10 w-full justify-center items-center">
-      <Text className="text-light-t1 dark:text-dark-t1 text-2xl font-bold mb-2">Deine Daten</Text>
-      <Text className="text-light-t2 dark:text-dark-t2 mb-1 text-lg font-bold">Benutzername: {user.username}</Text>
-      <Text className="text-light-t2 dark:text-dark-t2 mb-1 text-lg font-bold">Passwort: {user.password}</Text>
-      <Text className="text-light-t2 dark:text-dark-t2 mb-1 text-lg font-bold">Rolle: {role}</Text>
+    <View className="text-dark-b2 p-5 rounded-xl m-10 w-full justify-center items-center">
+      <Text className="text-dark-t1 text-2xl font-bold mb-2">Deine Daten</Text>
+      <Text className="text-dark-t2 mb-1 text-lg font-bold">Benutzername: {user.username}</Text>
+      <Text className="text-dark-t2 mb-1 text-lg font-bold">Passwort: {user.password}</Text>
+      <Text className="text-dark-t2 mb-1 text-lg font-bold">Rolle: {role}</Text>
       {!user.isadmin && !user.iswhitecard && (
-        <Text className="text-light-t2 dark:text-dark-t2 mb-1">Verbleibende Zeit: {subscription}</Text>
+        <Text className="text-dark-t2 mb-1">Verbleibende Zeit: {subscription}</Text>
       )}
     </View>
   );

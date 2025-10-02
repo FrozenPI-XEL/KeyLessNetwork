@@ -41,7 +41,7 @@ export default function LoginForm() {
   };
 
   return (
-    <View className="flex-1 bg-white dark:bg-slate-900 items-center justify-center px-6">
+    <View className="flex-1 bg-slate-900 items-center justify-center px-6">
       {/* Username */}
       <Controller
         control={control}
