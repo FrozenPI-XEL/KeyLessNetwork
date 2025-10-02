@@ -1,38 +1,56 @@
-from flask import Flask, request, jsonify
-from schloss_controll import lock, unlock
-from sensor import is_door_closed
+from fastapi import FastAPI
 import RPi.GPIO as GPIO
+import time
 
-app = Flask(__name__)
+app = FastAPI()
 
-@app.route('/lock', methods=['POST'])
-def lock_schloss():
-    data = request.json
-    schloss_id = data.get("schloss")
-    if not is_door_closed():
-        return jsonify({"success" : False, "error" : "Tür nicht geschlossen!"}), 400
-    lock(schloss_id)
-    return jsonify({"success": True})
+GPIO.setmode(GPIO.BCM)
 
-@app.route('/unlock', methods=['POST'])
-def unlock_schloss():
-    data = request.json
-    schloss_id = data.get("schloss")
-    unlock(schloss_id)
-    return jsonify({"success": True})
+# Zwei "Schlösser" = zwei LEDs
+locks = {
+    1: {"pin": 17, "state": "closed"},  # LED an GPIO 17
+    2: {"pin": 27, "state": "closed"},  # LED an GPIO 27
+}
 
-@app.route('/status', methods=['GET'])
-def check_door():
-    status = is_door_closed()
-    return jsonify({"door_closed": status})
+# GPIO Setup
+for lid, cfg in locks.items():
+    GPIO.setup(cfg["pin"], GPIO.OUT)
+    GPIO.output(cfg["pin"], GPIO.LOW)  # Aus = "geschlossen"
 
-@app.route('/')
-def hello():
-    return "Lock Controller Online DigiClub e.V. Leon Ayvazian "
 
-@app.teardown_appcontext
-def cleanup(exception=None):
-    GPIO.cleanup()
+@app.get("/health")
+def health():
+    return {"status": "ok", "locks": list(locks.keys())}
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+
+@app.post("/lock/{lock_id}/open")
+def open_lock(lock_id: int):
+    if lock_id not in locks:
+        return {"success": False, "error": "Invalid lock"}
+
+    cfg = locks[lock_id]
+    GPIO.output(cfg["pin"], GPIO.HIGH)  # LED AN
+    cfg["state"] = "open"
+
+    return {"success": True, "lock": lock_id, "state": cfg["state"]}
+
+
+@app.post("/lock/{lock_id}/close")
+def close_lock(lock_id: int):
+    if lock_id not in locks:
+        return {"success": False, "error": "Invalid lock"}
+
+    cfg = locks[lock_id]
+    GPIO.output(cfg["pin"], GPIO.LOW)  # LED AUS
+    cfg["state"] = "closed"
+
+    return {"success": True, "lock": lock_id, "state": cfg["state"]}
+
+
+@app.get("/lock/{lock_id}/status")
+def lock_status(lock_id: int):
+    if lock_id not in locks:
+        return {"success": False, "error": "Invalid lock"}
+
+    cfg = locks[lock_id]
+    return {"success": True, "lock": lock_id, "state": cfg["state"]}

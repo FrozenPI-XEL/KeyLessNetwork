@@ -20,7 +20,7 @@ export default function Admin() {
   const [subscriptionTime, setSubscriptionTime] = useState({ months: 0, weeks: 0, days: 0 });
   const [subscriptionTimeKey, setSubscriptionTimeKey] = useState(0);
 
-  // --- Neuer User hinzufügen ---
+  // --- Neuen User hinzufügen ---
   const handleAddUser = () => {
     if (!username || !password) return;
 
@@ -41,7 +41,7 @@ export default function Admin() {
     setSubscriptionTimeKey(prev => prev + 1);
   };
 
-  // --- User löschen & Kick ---
+  // --- User löschen und kicken ---
   const deleteUserHandler = (id: number) => {
     const userToDelete = users.find((u) => u.id === id);
     if (!userToDelete) return;
@@ -61,7 +61,7 @@ export default function Admin() {
     }
   };
 
-  // --- Auto-Abzug der Subscription alle 10 Sekunden ---
+  // --- Auto-Abzug der Subscription jeden Tag ---
   useEffect(() => {
     const interval = setInterval(() => {
       useUserStore.getState().users.forEach((u) => {
@@ -141,8 +141,7 @@ export default function Admin() {
                   : "User"}
               </Text>
 
-              {/* Subscription nur bei User & TempAdmin */}
-              {(!item.isadmin && !item.iswhitecard) && (
+                            {(!item.isadmin && !item.iswhitecard) && (
                 <UserSubscriptionPicker userId={item.id} />
               )}
             </View>

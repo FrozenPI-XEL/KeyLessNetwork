@@ -1,15 +1,24 @@
-import React, { useEffect, useState, useCallback } from "react";
-import {View,Text,TouchableOpacity,FlatList,TextInput,Modal,Alert, ActivityIndicator,} from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  TextInput,
+  Modal,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { v4 as uuidv4 } from "uuid"; 
-
+import { v4 as uuidv4 } from "uuid";
+import { Ionicons } from "@expo/vector-icons";
 
 type PiDevice = {
   id: string;
-  name: string;     // z.B. "pi"
-  host: string;     // z.B. "pi.local" oder "192.168.178.50"
-  port: number;     // z.B. 5000
-  lastSeen?: number; 
+  name: string;
+  host: string;
+  port: number;
+  lastSeen?: number;
   lastError?: string | null;
 };
 
@@ -25,11 +34,15 @@ function timeoutFetch(url: string, opts: RequestInit = {}, ms = 3000) {
 async function callPiApi(pi: PiDevice, path: string, method: "GET" | "POST" = "GET", body?: any) {
   const url = `http://${pi.host}:${pi.port}${path}`;
   try {
-    const res = await timeoutFetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: body ? JSON.stringify(body) : undefined,
-    }, 4000); // 4s timeout
+    const res = await timeoutFetch(
+      url,
+      {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined,
+      },
+      4000
+    );
     if (!(res as Response).ok) {
       const text = await (res as Response).text();
       throw new Error(`HTTP ${(res as Response).status}: ${text || (res as Response).statusText}`);
@@ -69,7 +82,7 @@ export default function PiManagerScreen() {
     );
   }, [pis]);
 
-  // Heartbeat: ping all Pis every 10s
+  // Heartbeat
   useEffect(() => {
     let mounted = true;
     async function pingAll() {
@@ -86,21 +99,20 @@ export default function PiManagerScreen() {
       );
       if (mounted) setPis(updated);
     }
-    // initial
     pingAll();
     const id = setInterval(pingAll, 10_000);
     return () => {
       mounted = false;
       clearInterval(id);
     };
-  }, [pis.length]); // rebind when number of Pis changes
+  }, [pis.length]);
 
   const openAdminForNew = () => {
     setEditingPi({ name: "", host: "pi.local", port: 5000 });
     setAdminVisible(true);
   };
 
-  const savePi = async (data: Partial<PiDevice>) => {
+  const savePi = (data: Partial<PiDevice>) => {
     const pi: PiDevice = {
       id: data.id ?? uuidv4?.() ?? String(Date.now()),
       name: (data.name || "pi").trim(),
@@ -134,29 +146,27 @@ export default function PiManagerScreen() {
   };
 
   const performLockAction = async (pi: PiDevice, lockNumber: 1 | 2, action: "open" | "close") => {
-    // Example path - passe an deine Pi-API an
     const path = `/lock/${lockNumber}/${action}`;
     const result = await callPiApi(pi, path, "POST");
     if (result.ok) {
-      // success — zeige Erfolg kurz als Alert
       Alert.alert("Erfolg", `Schloss ${lockNumber} ${action} erfolgreich auf ${pi.name}`);
-      // update lastSeen
-      setPis((prev) => prev.map((p) => (p.id === pi.id ? { ...p, lastSeen: Date.now(), lastError: null } : p)));
+      setPis((prev) =>
+        prev.map((p) =>
+          p.id === pi.id ? { ...p, lastSeen: Date.now(), lastError: null } : p
+        )
+      );
     } else {
-      // show error messages (von Pi oder Netzwerk)
       const err = (result as { error?: string }).error || "Unbekannter Fehler";
       Alert.alert("Fehler", `Auf ${pi.name}: ${err}`);
       setPis((prev) => prev.map((p) => (p.id === pi.id ? { ...p, lastError: err } : p)));
     }
   };
 
-  // Quick "discover pi.local" attempt
   const tryDiscoverPi = async () => {
     setScanning(true);
     const candidate: PiDevice = { id: `auto-${Date.now()}`, name: "pi", host: "pi.local", port: 5000 };
     const r = await callPiApi(candidate, "/health", "GET");
     if (r.ok) {
-      // add if not exists
       setPis((prev: PiDevice[]) => {
         const exists = prev.some((p: PiDevice) => p.host === candidate.host && p.port === candidate.port);
         if (exists) return prev;
@@ -171,124 +181,110 @@ export default function PiManagerScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="large" />
-        <Text className="mt-2">Lade gespeicherte Geräte …</Text>
+      <View className="flex-1 items-center justify-center bg-slate-900">
+        <ActivityIndicator size="large" color="white" />
+        <Text className="mt-2 text-dark-t1">Lade gespeicherte Geräte …</Text>
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-white p-4">
-      <View className="flex-row justify-between items-center mb-4">
-        <Text className="text-2xl font-bold">Raspberry Pi Manager</Text>
-        <View className="flex-row">
+    <View className="flex-1 bg-slate-900 p-6">
+      <View className="flex-row justify-between items-center mb-6">
+        <Text className="text-dark-t1 text-2xl font-bold">Raspberry Pi Manager</Text>
+        <View className="flex-row gap-2">
           <TouchableOpacity
             onPress={tryDiscoverPi}
-            className="bg-blue-500 px-3 py-2 rounded-md mr-2"
-            accessibilityLabel="Try discover"
+            className="bg-blue-500 px-4 py-2 rounded-xl flex-row items-center"
           >
-            <Text className="text-white">Find pi.local</Text>
+            <Ionicons name="search" size={18} color="white" />
+            <Text className="text-white ml-2">Find pi.local</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={openAdminForNew}
-            className="bg-green-600 px-3 py-2 rounded-md"
-            accessibilityLabel="Add new"
+            className="bg-green-600 px-4 py-2 rounded-xl flex-row items-center"
           >
-            <Text className="text-white">Admin (Add)</Text>
+            <Ionicons name="add-circle" size={18} color="white" />
+            <Text className="text-white ml-2">Add</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {scanning && (
         <View className="mb-2">
-          <Text>Scanning pi.local …</Text>
+          <Text className="text-dark-t2">Scanning pi.local …</Text>
         </View>
       )}
 
       <FlatList
         data={pis}
         keyExtractor={(item) => item.id}
-        ItemSeparatorComponent={() => <View className="h-2" />}
         renderItem={({ item }) => {
           const online = !!item.lastSeen && Date.now() - item.lastSeen < 20_000;
           return (
-            <View className="border rounded-lg p-3 bg-gray-50">
-              <View className="flex-row justify-between">
+            <View className="p-4 rounded-xl bg-slate-700 mb-3">
+              <View className="flex-row justify-between items-start">
                 <View>
-                  <Text className="text-lg font-semibold">{item.name}</Text>
-                  <Text className="text-sm text-gray-600">{item.host}:{item.port}</Text>
-                  <Text className="text-xs mt-1">
+                  <Text className="text-dark-t1 text-lg font-semibold">{item.name}</Text>
+                  <Text className="text-dark-t2 text-sm">{item.host}:{item.port}</Text>
+                  <Text className="text-xs mt-1 text-dark-t2">
                     {online ? "Online" : item.lastError ? `Fehler: ${item.lastError}` : "Offline"}
                   </Text>
                 </View>
-                <View className="flex-col items-end">
+                <View className="flex-row gap-2">
                   <TouchableOpacity
                     onPress={() => { setEditingPi(item); setAdminVisible(true); }}
-                    className="px-2 py-1 border rounded mb-2"
+                    className="bg-yellow-500 p-2 rounded-lg"
                   >
-                    <Text>Edit</Text>
+                    <Ionicons name="create" size={18} color="white" />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => deletePi(item.id)}
-                    className="px-2 py-1 border rounded"
+                    className="bg-red-500 p-2 rounded-lg"
                   >
-                    <Text>Delete</Text>
+                    <Ionicons name="trash" size={18} color="white" />
                   </TouchableOpacity>
                 </View>
               </View>
 
-              <View className="flex-row justify-between mt-3">
-                <View className="flex-1 mr-2">
-                  <Text className="font-medium mb-2">Schloss 1</Text>
-                  <View className="flex-row">
-                    <TouchableOpacity
-                      onPress={() => performLockAction(item, 1, "open")}
-                      className="flex-1 px-3 py-2 border rounded mr-1"
-                    >
-                      <Text className="text-center">Auf</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => performLockAction(item, 1, "close")}
-                      className="flex-1 px-3 py-2 border rounded ml-1"
-                    >
-                      <Text className="text-center">Zu</Text>
-                    </TouchableOpacity>
+              {/* Locks */}
+              <View className="flex-row justify-between mt-4">
+                {[1, 2].map((lock) => (
+                  <View key={lock} className="flex-1 mx-1">
+                    <Text className="text-dark-t1 font-medium mb-2">Schloss {lock}</Text>
+                    <View className="flex-row gap-2">
+                      <TouchableOpacity
+                        onPress={() => performLockAction(item, lock as 1 | 2, "open")}
+                        className="flex-1 bg-green-500 px-3 py-2 rounded-lg"
+                      >
+                        <Text className="text-white text-center">Auf</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => performLockAction(item, lock as 1 | 2, "close")}
+                        className="flex-1 bg-red-500 px-3 py-2 rounded-lg"
+                      >
+                        <Text className="text-white text-center">Zu</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
-
-                <View className="flex-1 ml-2">
-                  <Text className="font-medium mb-2">Schloss 2</Text>
-                  <View className="flex-row">
-                    <TouchableOpacity
-                      onPress={() => performLockAction(item, 2, "open")}
-                      className="flex-1 px-3 py-2 border rounded mr-1"
-                    >
-                      <Text className="text-center">Auf</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => performLockAction(item, 2, "close")}
-                      className="flex-1 px-3 py-2 border rounded ml-1"
-                    >
-                      <Text className="text-center">Zu</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
+                ))}
               </View>
             </View>
           );
         }}
         ListEmptyComponent={() => (
           <View className="items-center mt-8">
-            <Text className="text-gray-500">Keine Pis konfiguriert. Admin → + hinzufügen.</Text>
+            <Text className="text-dark-t2">Keine Pis konfiguriert. Admin → + hinzufügen.</Text>
           </View>
         )}
       />
 
       {/* Admin Modal */}
       <Modal visible={adminVisible} animationType="slide" onRequestClose={() => setAdminVisible(false)}>
-        <View className="flex-1 p-4 bg-white">
-          <Text className="text-xl font-bold mb-4">{editingPi?.id ? "Edit Pi" : "Add Pi"}</Text>
+        <View className="flex-1 p-6 bg-slate-900">
+          <Text className="text-dark-t1 text-xl font-bold mb-6">
+            {editingPi?.id ? "Edit Pi" : "Add Pi"}
+          </Text>
           <AdminForm
             initial={editingPi}
             onCancel={() => { setAdminVisible(false); setEditingPi(null); }}
@@ -316,37 +312,30 @@ function AdminForm({
 
   return (
     <View className="flex-1">
-      <Text className="mb-1">Name</Text>
-      <TextInput
-        value={name}
-        onChangeText={setName}
-        placeholder="pi"
-        className="border p-2 rounded mb-3"
-      />
+      <Text className="text-dark-t2 mb-1">Name</Text>
+      <View className="bg-slate-700 rounded-lg px-3 py-2 mb-3">
+        <TextInput className="text-dark-t1" value={name} onChangeText={setName} placeholder="pi" />
+      </View>
 
-      <Text className="mb-1">Host (z.B. pi.local oder 192.168.1.55)</Text>
-      <TextInput
-        value={host}
-        onChangeText={setHost}
-        placeholder="pi.local"
-        className="border p-2 rounded mb-3"
-      />
+      <Text className="text-dark-t2 mb-1">Host</Text>
+      <View className="bg-slate-700 rounded-lg px-3 py-2 mb-3">
+        <TextInput className="text-dark-t1" value={host} onChangeText={setHost} placeholder="pi.local" />
+      </View>
 
-      <Text className="mb-1">Port</Text>
-      <TextInput
-        value={port}
-        onChangeText={setPort}
-        keyboardType="numeric"
-        placeholder="5000"
-        className="border p-2 rounded mb-3"
-      />
+      <Text className="text-dark-t2 mb-1">Port</Text>
+      <View className="bg-slate-700 rounded-lg px-3 py-2 mb-3">
+        <TextInput
+          className="text-dark-t1"
+          value={port}
+          onChangeText={setPort}
+          keyboardType="numeric"
+          placeholder="5000"
+        />
+      </View>
 
-      <View className="flex-row mt-4">
-        <TouchableOpacity
-          onPress={() => onCancel()}
-          className="flex-1 border px-3 py-2 rounded mr-2"
-        >
-          <Text className="text-center">Abbrechen</Text>
+      <View className="flex-row mt-4 gap-2">
+        <TouchableOpacity onPress={onCancel} className="flex-1 bg-slate-600 px-3 py-3 rounded-lg">
+          <Text className="text-dark-t1 text-center">Abbrechen</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => {
@@ -361,9 +350,9 @@ function AdminForm({
               port: Number(port),
             });
           }}
-          className="flex-1 bg-blue-600 px-3 py-2 rounded"
+          className="flex-1 bg-blue-600 px-3 py-3 rounded-lg"
         >
-          <Text className="text-center text-white">Speichern</Text>
+          <Text className="text-white text-center">Speichern</Text>
         </TouchableOpacity>
       </View>
     </View>
