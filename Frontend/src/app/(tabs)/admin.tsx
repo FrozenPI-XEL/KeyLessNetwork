@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, FlatList, TextInput, Alert } from "react-native";
+import { ScrollView, View, Text, TouchableOpacity, FlatList, TextInput, Alert, Modal} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SubscriptionTimePicker, SubscriptionTimePickerWithPulse } from "@/components/zeitauswahl";
 import RoleDropdown from "@/components/rollenauswahl";
 import { useUserStore, User } from "@/store/userStore";
 import { useAuthStore } from "@/store/authStore";
+import PiForm from "@/components/PiForm";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { TabRouter } from "@react-navigation/native";
 
 export default function Admin() {
   const users = useUserStore((s) => s.users);
@@ -13,12 +16,20 @@ export default function Admin() {
   const promoteUser = useUserStore((s) => s.promoteUser);
   const demoteUser = useUserStore((s) => s.demoteUser);
   const currentUser = useAuthStore((s) => s.username);
-
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("User");
   const [subscriptionTime, setSubscriptionTime] = useState({ months: 0, weeks: 0, days: 0 });
   const [subscriptionTimeKey, setSubscriptionTimeKey] = useState(0);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editPi, setEditPi] = useState<Partial<Pi> | null>(null);
+  const [pis, setPis] = useState<Pi[]>([]); 
+  const [loadingPis, setLoadingPis] = useState(true);
+  const [open, setOpen] = useState(false);
+
+  type Pi = { id?: string; n: string; h: string; p: number };
+
+  useEffect(() => { (async () => { const data = await AsyncStorage.getItem("MY_PIS_v1"); if(data) setPis(JSON.parse(data)); setLoadingPis(false); })(); }, []);
 
   // --- Neuen User hinzufügen ---
   const handleAddUser = () => {
@@ -120,13 +131,15 @@ export default function Admin() {
   };
 
   return (
-    <View className="flex-1 bg-slate-900 p-6">
+    <ScrollView 
+    className="flex-1 bg-slate-900 p-6">
       <Text className=" text-dark-t1 text-2xl font-bold mb-6 text-center">Nutzerverwaltung</Text>
 
       {/* Liste */}
       <FlatList
         data={users}
         keyExtractor={(item) => item.id.toString()}
+        
         renderItem={({ item }) => (
           <View className=" p-4 rounded-xl bg-slate-700  mb-3 flex-row justify-between items-center">
             <View>
@@ -195,6 +208,38 @@ export default function Admin() {
           <Text className="text-dark-t1 font-semibold text-base ml-2">Nutzer hinzufügen</Text>
         </TouchableOpacity>
       </View>
-    </View>
+
+      {/* Pi Verwaltung */}
+      <TouchableOpacity
+       onPress={() => { setEditPi(null); setOpen(true) }}
+        className="flex-row items-center bg-indigo-500 p-3 mb-20 rounded-xl mt-20 justify-center"
+      >
+        <Text className="text-white text-lg">Neuen Schrank hinzufügen</Text>
+      </TouchableOpacity>
+        <Modal visible={open} transparent={true} animationType="fade" >
+          <View className="flex-1 bg-black/70 justify-center">           
+              <Text className="text-dark-t1 text-xl font-bold mb-6">
+                {editPi?.id ? "Pi bearbeiten" : "Neuen Pi hinzufügen"}
+              </Text>
+
+              <PiForm 
+              onSave={(piData) => {
+              setPis(prev => {
+                const idx = prev.findIndex(p => p.id === piData.id);
+                if (idx >= 0) { 
+                const copy = [...prev]; 
+                copy[idx] = piData; 
+                return copy; 
+                }
+                return [piData, ...prev];
+              });
+              setOpen(false);
+              }}
+              onCancel={() => setOpen(false)}
+              />
+          </View>
+         
+      </Modal>
+    </ScrollView>
   );
 }

@@ -7,7 +7,7 @@ const RoleDropdown: React.FC<{ value: string; onChange: (role: string) => void }
   const [open, setOpen] = useState(false);
 
   return (
-    <View className="mb-4">
+    <View className="mb-4 bg-slate-600 rounded-lg px-3 py-2">
       {/* Aktuelle Rolle */}
       <TouchableOpacity
         onPress={() => setOpen(true)}

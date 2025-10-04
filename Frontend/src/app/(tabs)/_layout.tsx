@@ -45,6 +45,16 @@ export default function TabsLayout() {
           headerShown: false,
         }}
       />
+      <Tabs.Screen
+        name="controll"
+        options={{
+          title: "Steuerung",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="game-controller-outline" size={size} color={color} />
+          ),
+        }}
+      />
+
 
       <Tabs.Screen
         name="profile"
@@ -55,6 +65,9 @@ export default function TabsLayout() {
           ),
         }}
       />
+      
     </Tabs>
+    
+    
   );
 }

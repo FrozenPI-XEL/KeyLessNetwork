@@ -22,7 +22,7 @@ const BaseSubscriptionTimePicker: React.FC<
 
   const totalDays = time.months * 30 + time.weeks * 7 + time.days;
 
-  //  Pulsieren wenn ≤ 3 Tage 
+  //  Pulsieren ab 3 Tage 
   useEffect(() => {
     if (withPulse && totalDays <= 3) {
       Animated.loop(
@@ -52,37 +52,38 @@ const BaseSubscriptionTimePicker: React.FC<
   };
 
   return (
-    <View>
+    <View className="mb-4 rounded-lg ">
       <TouchableOpacity onPress={() => setModalVisible(true)}>
         <Animated.View
           style={withPulse ? { opacity: pulseAnim } : {}}
           className={`p-1 rounded-lg items-center 
             ${ withPulse && totalDays <= 3 ? "bg-red-500" : ""}
             ${ withPulse  && totalDays > 3? "text-dark-b2" : ""}
-            ${ !withPulse  ? "text-dark-b3" : ""}
+            ${ !withPulse  ? "text-dark-b3" : ""  }
+            ${ !withPulse  ? "bg-slate-600" : ""  }
              `}
         >
 
           {/* Text */}
           {withPulse && (
-            <View className="flex-row items-center mt-1">
+            <View className="flex-row items-center">
               <Ionicons
                 name="time"
                 size={16}
                 color= "white"
               />
               <Text
-                className="ml-1 text-sm font-bold 
-                   text-white"
+                className="ml-1 text-sm font-semibold 
+                   text-white "
               >
                 {totalDays} Tage übrig
               </Text>
             </View>
           )}
           {!withPulse && (
-            <View className="flex-row items-center mt-1 h-5 ">
+            <View className="flex-row items-center mt-1 h-5">
               <Text
-                className="ml-1 text-sm font-bold text-dark-t1">
+                className="ml-1 text-l font-bold text-dark-t1">
                   {time.months}M {time.weeks}W {time.days}T
               </Text>
             </View>
@@ -93,7 +94,7 @@ const BaseSubscriptionTimePicker: React.FC<
       {/* Modal */}
       <Modal transparent={true} visible={modalVisible} animationType="fade">
         <View className="flex-1 bg-black/70 justify-center items-center">
-          <View className="bg-slate-800 rounded-xl p-5 w-80 ">
+          <View className=" rounded-xl p-5 w-80 ">
             {(["months", "weeks", "days"] as (keyof SubscriptionTime)[]).map(
               (field) => (
                 <View
@@ -103,14 +104,14 @@ const BaseSubscriptionTimePicker: React.FC<
                   <Text className="text-dark-t1 capitalize w-20 font-bold">{field}</Text>
                   <TouchableOpacity
                     onPress={() => adjustTime(field, -1)}
-                    className=" bg-slate-600 rounded-md px-3 py-1"
+                    className=" rounded-md px-3 py-1"
                   >
                     <Text className="text-2xl font-bold text-dark-t1">-</Text>
                   </TouchableOpacity>
                     <Text className="mx-3 text-lg font-bold text-dark-t1">{time[field]}</Text>
                   <TouchableOpacity
                     onPress={() => adjustTime(field, 1)}
-                    className="bg-slate-600 rounded-md px-3 py-1"
+                    className="rounded-md px-3 py-1"
                   >
                     <Text className="text-lg font-bold text-dark-t1">+</Text>
                   </TouchableOpacity>
