@@ -6,51 +6,69 @@ app = FastAPI()
 
 GPIO.setmode(GPIO.BCM)
 
-# Zwei "Schlösser" = zwei LEDs
-locks = {
-    1: {"pin": 17, "state": "closed"},  # LED an GPIO 17
-    2: {"pin": 27, "state": "closed"},  # LED an GPIO 27
+# GPIO Pins für die Motoren
+motors = {
+    1: {"in1": 17, "in2": 18, "ena": 22, "state": "stopped"},
+    2: {"in1": 27, "in2": 23, "ena": 24, "state": "stopped"},
 }
 
-# GPIO Setup
-for lid, cfg in locks.items():
-    GPIO.setup(cfg["pin"], GPIO.OUT)
-    GPIO.output(cfg["pin"], GPIO.LOW)  # Aus = "geschlossen"
 
+for m in motors.values():
+    GPIO.setup(m["in1"], GPIO.OUT)
+    GPIO.setup(m["in2"], GPIO.OUT)
+    GPIO.setup(m["ena"], GPIO.OUT)
+    m["pwm"] = GPIO.PWM(m["ena"], 1000)  # 1 kHz PWM
+    m["pwm"].start(0)
+
+def motor_stop(m):
+    GPIO.output(m["in1"], GPIO.LOW)
+    GPIO.output(m["in2"], GPIO.LOW)
+    m["pwm"].ChangeDutyCycle(0)
+
+def motor_open(m, speed=80):
+    GPIO.output(m["in1"], GPIO.HIGH)
+    GPIO.output(m["in2"], GPIO.LOW)
+    m["pwm"].ChangeDutyCycle(speed)
+
+def motor_close(m, speed=80):
+    GPIO.output(m["in1"], GPIO.LOW)
+    GPIO.output(m["in2"], GPIO.HIGH)
+    m["pwm"].ChangeDutyCycle(speed)
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "locks": list(locks.keys())}
-
+    return {"status": "ok", "motors": list(motors.keys())}
 
 @app.post("/lock/{lock_id}/open")
 def open_lock(lock_id: int):
-    if lock_id not in locks:
+    if lock_id not in motors:
         return {"success": False, "error": "Invalid lock"}
 
-    cfg = locks[lock_id]
-    GPIO.output(cfg["pin"], GPIO.HIGH)  # LED AN
-    cfg["state"] = "open"
+    m = motors[lock_id]
+    motor_open(m)
+    time.sleep(2)   # Motor 2 Sekunden laufen lassen
+    motor_stop(m)
+    m["state"] = "open"
 
-    return {"success": True, "lock": lock_id, "state": cfg["state"]}
-
+    return {"success": True, "lock": lock_id, "state": m["state"]}
 
 @app.post("/lock/{lock_id}/close")
 def close_lock(lock_id: int):
-    if lock_id not in locks:
+    if lock_id not in motors:
         return {"success": False, "error": "Invalid lock"}
 
-    cfg = locks[lock_id]
-    GPIO.output(cfg["pin"], GPIO.LOW)  # LED AUS
-    cfg["state"] = "closed"
+    m = motors[lock_id]
+    motor_close(m)
+    time.sleep(2)
+    motor_stop(m)
+    m["state"] = "closed"
 
-    return {"success": True, "lock": lock_id, "state": cfg["state"]}
-
+    return {"success": True, "lock": lock_id, "state": m["state"]}
 
 @app.get("/lock/{lock_id}/status")
 def lock_status(lock_id: int):
-    if lock_id not in locks:
+    if lock_id not in motors:
         return {"success": False, "error": "Invalid lock"}
 
-    cfg = locks[lock_id]
-    return {"success": True, "lock": lock_id, "state": cfg["state"]}
+    m = motors[lock_id]
+    return {"success": True, "lock": lock_id, "state": m["state"]}
