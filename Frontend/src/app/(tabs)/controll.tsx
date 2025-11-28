@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
 
-const PI_IP = "192.168.178.136";
+const PI_IP = "192.168.178.195";
 const PI_PORT = 5000;
 
 const fetchTimeout = (url: string, opts: RequestInit = {}, ms = 3000) =>
@@ -70,11 +70,14 @@ export default function PiManager() {
   }
 
   return (
-    <View className="flex-1 bg-slate-900 p-6">
+    <View className="flex-1  bg-slate-900">
+    <View className=" bg-slate-900 rounded-lg p-6">
       <Text className="text-white text-2xl font-bold mb-4">Mein Schrank (Pi)</Text>
       <Text className="text-white mb-4">
         {online ? "Online" : lastError ? `Fehler: ${lastError}` : "Offline"}
       </Text>
+
+
 
       {[1, 2].map((l) => (
         <View key={l} className="mb-4">
@@ -96,6 +99,18 @@ export default function PiManager() {
           </View>
         </View>
       ))}
+      < TouchableOpacity
+          onPress={async () => {
+          const r = await apiCall("/rainbow", "POST");
+          if (!r.ok) {
+            Alert.alert("Fehler", `Konnte Rainbow nicht starten: ${r.err}`);
+          }
+          }}
+        className="p-4 rounded-lg text-center m-4 bg-slate-600" 
+          >
+        <Text className="text-white text-center font-bold">LOCATE</Text>
+      </TouchableOpacity>
     </View>
+  </View>
   );
 }
