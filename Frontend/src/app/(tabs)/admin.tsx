@@ -1,245 +1,606 @@
 import React, { useState, useEffect } from "react";
-import { ScrollView, View, Text, TouchableOpacity, FlatList, TextInput, Alert, Modal} from "react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  ScrollView,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SubscriptionTimePicker, SubscriptionTimePickerWithPulse } from "@/components/zeitauswahl";
-import RoleDropdown from "@/components/rollenauswahl";
-import { useUserStore, User } from "@/store/userStore";
-import { useAuthStore } from "@/store/authStore";
-import PiForm from "@/components/PiForm";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { supabase } from "../../hooks/supabase-client";
+import { useAuthStore } from "../../store/authStore";
 
+type AdminUser = {
+  id: number;
+  username: string;
+  Role: boolean;
+  code: string;
+};
 
-export default function Admin() {
-  const users = useUserStore((s) => s.users);
-  const addUser = useUserStore((s) => s.addUser);
-  const deleteUser = useUserStore((s) => s.deleteUser);
-  const promoteUser = useUserStore((s) => s.promoteUser);
-  const demoteUser = useUserStore((s) => s.demoteUser);
-  const currentUser = useAuthStore((s) => s.username);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState("User");
-  const [subscriptionTime, setSubscriptionTime] = useState({ months: 0, weeks: 0, days: 0 });
-  const [subscriptionTimeKey, setSubscriptionTimeKey] = useState(0);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editPi, setEditPi] = useState<Partial<Pi> | null>(null);
-  const [pis, setPis] = useState<Pi[]>([]); 
-  const [loadingPis, setLoadingPis] = useState(true);
-  const [open, setOpen] = useState(false);
+type CodeItem = {
+  id: number;
+  code: string;
+  genutzt: boolean;
+};
 
-  type Pi = { id?: string; n: string; h: string; p: number };
+type RaspberryPi = {
+  id: number;
+  name: string;
+  ip_address: string;
+  port: number;
+};
 
-  useEffect(() => { (async () => { const data = await AsyncStorage.getItem("MY_PIS_v1"); if(data) setPis(JSON.parse(data)); setLoadingPis(false); })(); }, []);
+export default function AdminPanel() {
+  const username = useAuthStore((s: any) => s.username);
+  const isadmin = useAuthStore((s: any) => s.isadmin);
 
-  // --- Neuen User hinzufügen ---
-  const handleAddUser = () => {
-    if (!username || !password) return;
+  const [activeTab, setActiveTab] = useState("users");
+  const [loading, setLoading] = useState(false);
 
-    addUser({
-      username,
-      password,
-      isadmin: role === "Admin",
-      istempadmin: role === "TempAdmin",
-      iswhitecard: role === "WhiteCard",
-      subscription: role === "User" || role === "TempAdmin" ? subscriptionTime : undefined,
-    });
+  // Users Tab State
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newIsAdmin, setNewIsAdmin] = useState(false);
 
-    setUsername("");
-    setPassword("");
-    setRole("User");
-    setSubscriptionTime({ months: 0, weeks: 0, days: 0 });
+  // Codes Tab State
+  const [codes, setCodes] = useState<CodeItem[]>([]);
+  const [newCode, setNewCode] = useState("");
 
-    setSubscriptionTimeKey(prev => prev + 1);
-  };
+  // Pis Tab State
+  const [pis, setPis] = useState<RaspberryPi[]>([]);
+  const [piName, setPiName] = useState("");
+  const [piIp, setPiIp] = useState("");
+  const [piPort, setPiPort] = useState("");
 
-  // --- User löschen und kicken ---
-  const deleteUserHandler = (id: number) => {
-    const userToDelete = users.find((u) => u.id === id);
-    if (!userToDelete) return;
-
-    // Letzter Admin Check
-    const adminCount = users.filter(u => u.isadmin).length;
-    if (userToDelete.isadmin && adminCount === 1) {
-      Alert.alert("Fehler", "Der letzte Admin kann nicht gelöscht werden!");
-      return; // Abbruch
-    }
-
-    deleteUser(id);
-
-    // Kick, wenn aktueller User gelöscht wird
-    if (userToDelete.username === currentUser) {
-      useAuthStore.getState().logOut();
-    }
-  };
-
-  // --- Auto-Abzug der Subscription jeden Tag ---
   useEffect(() => {
-    const interval = setInterval(() => {
-      useUserStore.getState().users.forEach((u) => {
-        if (!u.isadmin && !u.iswhitecard && u.subscription) {
-          let { months, weeks, days } = u.subscription;
-          days -= 1;
-          if (days < 0) {
-            weeks -= 1;
-            days = 6;
-          }
-          if (weeks < 0) {
-            months -= 1;
-            weeks = 3;
-          }
-
-          const subscriptionEnded = months <= 0 && weeks <= 0 && days <= 0;
-
-          if (subscriptionEnded) {
-            deleteUser(u.id);
-            if (useAuthStore.getState().username === u.username) {
-              useAuthStore.getState().logOut();
-            }
-          } else {
-            // Subscription aktualisieren
-            useUserStore.setState({
-              users: useUserStore.getState().users.map((usr) =>
-                usr.id === u.id ? { ...usr, subscription: { months, weeks, days } } : usr
-              ),
-            });
-          }
-        }
-      });
-    }, 60000*60*24);
-
-    return () => clearInterval(interval);
+    loadAllData();
   }, []);
 
-  // --- Komponente für User-Picker ---
-  const UserSubscriptionPicker = ({ userId }: { userId: number }) => {
-    const user = useUserStore((s) => s.users.find(u => u.id === userId));
-    if (!user || !user.subscription) return null;
-
-    return (
-      <SubscriptionTimePickerWithPulse
-        initialTime={user.subscription}
-        onSave={(t) => {
-          useUserStore.setState({
-            users: useUserStore.getState().users.map(u =>
-              u.id === userId ? { ...u, subscription: t } : u
-            ),
-          });
-        }}
-        key={user.id} 
-      />
-    );
+  const loadAllData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([loadUsers(), loadCodes(), loadPis()]);
+    } catch (err) {
+      console.error("Error loading data:", err);
+    }
+    setLoading(false);
   };
 
+  // ===== USERS TAB =====
+  const loadUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("codes")
+        .select("id, username, Role, code")
+        .not("username", "is", null);
+
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (err) {
+      console.error("Error loading users:", err);
+    }
+  };
+
+  const handleAddUser = async () => {
+    if (!newUsername.trim() || !newPassword.trim()) {
+      Alert.alert("Fehler", "Benutzername und Passwort erforderlich");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.from("codes").insert([
+        {
+          username: newUsername,
+          code: `USER-${Date.now()}`,
+          genutzt: true,
+          Role: newIsAdmin,
+        },
+      ]);
+
+      if (error) throw error;
+
+      setNewUsername("");
+      setNewPassword("");
+      setNewIsAdmin(false);
+      await loadUsers();
+      Alert.alert("Erfolg", "Nutzer hinzugefügt!");
+    } catch (err: any) {
+      Alert.alert("Fehler", err.message || "Fehler beim Hinzufügen");
+    }
+    setLoading(false);
+  };
+
+  const handleDeleteUser = (userId: number) => {
+    Alert.alert("Löschen bestätigen", "Soll dieser Nutzer wirklich gelöscht werden?", [
+      { text: "Abbrechen", style: "cancel" },
+      {
+        text: "Löschen",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const { error } = await supabase.from("codes").delete().eq("id", userId);
+            if (error) throw error;
+            await loadUsers();
+          } catch (err: any) {
+            Alert.alert("Fehler", err.message);
+          }
+        },
+      },
+    ]);
+  };
+
+  // ===== CODES TAB =====
+  const loadCodes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("codes")
+        .select("id, code, genutzt")
+        .is("username", null);
+
+      if (error) throw error;
+      setCodes(data || []);
+    } catch (err) {
+      console.error("Error loading codes:", err);
+    }
+  };
+
+  const handleAddCode = async () => {
+    if (!newCode.trim() || newCode.length !== 8) {
+      Alert.alert("Fehler", "Code muss 8 Zeichen lang sein");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from("codes")
+        .insert([{ code: newCode.toUpperCase(), genutzt: false }]);
+
+      if (error) throw error;
+
+      setNewCode("");
+      await loadCodes();
+      Alert.alert("Erfolg", "Code hinzugefügt!");
+    } catch (err: any) {
+      Alert.alert("Fehler", err.message);
+    }
+    setLoading(false);
+  };
+
+  const handleDeleteCode = (codeId: number) => {
+    Alert.alert("Löschen bestätigen", "Soll dieser Code gelöscht werden?", [
+      { text: "Abbrechen", style: "cancel" },
+      {
+        text: "Löschen",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const { error } = await supabase.from("codes").delete().eq("id", codeId);
+            if (error) throw error;
+            await loadCodes();
+          } catch (err: any) {
+            Alert.alert("Fehler", err.message);
+          }
+        },
+      },
+    ]);
+  };
+
+  // ===== PIS TAB =====
+  const loadPis = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("raspberry_pis")
+        .select("*");
+
+      if (error) throw error;
+      setPis(data || []);
+    } catch (err) {
+      console.error("Error loading pis:", err);
+    }
+  };
+
+  const handleAddPi = async () => {
+    if (!piName.trim() || !piIp.trim() || !piPort.trim()) {
+      Alert.alert("Fehler", "Alle Felder erforderlich");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.from("raspberry_pis").insert([
+        {
+          name: piName,
+          ip_address: piIp,
+          port: parseInt(piPort),
+        },
+      ]);
+
+      if (error) throw error;
+
+      setPiName("");
+      setPiIp("");
+      setPiPort("");
+      await loadPis();
+      Alert.alert("Erfolg", "Raspberry Pi hinzugefügt!");
+    } catch (err: any) {
+      Alert.alert("Fehler", err.message);
+    }
+    setLoading(false);
+  };
+
+  const handleDeletePi = (piId: number) => {
+    Alert.alert("Löschen bestätigen", "Soll dieser Raspberry Pi gelöscht werden?", [
+      { text: "Abbrechen", style: "cancel" },
+      {
+        text: "Löschen",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const { error } = await supabase.from("raspberry_pis").delete().eq("id", piId);
+            if (error) throw error;
+            await loadPis();
+          } catch (err: any) {
+            Alert.alert("Fehler", err.message);
+          }
+        },
+      },
+    ]);
+  };
+
+  if (!isadmin) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#1e293b" }}>
+        <Text style={{ color: "white", fontSize: 18 }}>❌ Du hast keine Admin-Berechtigung</Text>
+      </View>
+    );
+  }
+
   return (
-    <ScrollView 
-    className="flex-1 bg-slate-900 p-6">
-      <Text className=" text-dark-t1 text-2xl font-bold mb-6 text-center">Nutzerverwaltung</Text>
+    <ScrollView style={{ flex: 1, backgroundColor: "#1e293b" }}>
+      <View style={{ paddingHorizontal: 16, paddingVertical: 16 }}>
+        {/* Header */}
+        <Text style={{ color: "white", fontSize: 28, fontWeight: "bold", marginBottom: 16, textAlign: "center" }}>
+          👑 Admin Panel
+        </Text>
 
-      {/* Liste */}
-      <FlatList
-        data={users}
-        keyExtractor={(item) => item.id.toString()}
-        
-        renderItem={({ item }) => (
-          <View className=" p-4 rounded-xl bg-slate-700  mb-3 flex-row justify-between items-center">
-            <View>
-              <Text className="text-dark-t1 text-lg font-semibold">{item.username}</Text>
-              <Text className="text-dark-t2 text-sm mb-3">
-                {item.isadmin
-                  ? "Admin"
-                  : item.istempadmin
-                  ? "TempAdmin"
-                  : item.iswhitecard
-                  ? "WhiteCard"
-                  : "User"}
-              </Text>
+        {/* Tab Buttons */}
+        <View style={{ flexDirection: "row", marginBottom: 20, gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => setActiveTab("users")}
+            style={{
+              flex: 1,
+              paddingVertical: 12,
+              borderRadius: 8,
+              backgroundColor: activeTab === "users" ? "#6366f1" : "#475569",
+            }}
+          >
+            <Text style={{ color: "white", fontWeight: "bold", textAlign: "center" }}>👤 Nutzer</Text>
+          </TouchableOpacity>
 
-                            {(!item.isadmin && !item.iswhitecard) && (
-                <UserSubscriptionPicker userId={item.id} />
+          <TouchableOpacity
+            onPress={() => setActiveTab("codes")}
+            style={{
+              flex: 1,
+              paddingVertical: 12,
+              borderRadius: 8,
+              backgroundColor: activeTab === "codes" ? "#6366f1" : "#475569",
+            }}
+          >
+            <Text style={{ color: "white", fontWeight: "bold", textAlign: "center" }}>🔑 Codes</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setActiveTab("pis")}
+            style={{
+              flex: 1,
+              paddingVertical: 12,
+              borderRadius: 8,
+              backgroundColor: activeTab === "pis" ? "#6366f1" : "#475569",
+            }}
+          >
+            <Text style={{ color: "white", fontWeight: "bold", textAlign: "center" }}>🥧 Pi</Text>
+          </TouchableOpacity>
+        </View>
+
+        {loading && <ActivityIndicator size="large" color="#6366f1" style={{ marginVertical: 20 }} />}
+
+        {/* USERS TAB */}
+        {activeTab === "users" && (
+          <View>
+            <Text style={{ color: "white", fontSize: 20, fontWeight: "bold", marginBottom: 12 }}>Nutzerverwaltung</Text>
+
+            {/* Users List */}
+            <FlatList
+              scrollEnabled={false}
+              data={users}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <View style={{ backgroundColor: "#334155", padding: 12, borderRadius: 8, marginBottom: 8 }}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: "white", fontWeight: "bold", fontSize: 16 }}>{item.username}</Text>
+                      <Text style={{ color: "#cbd5e1", fontSize: 12 }}>
+                        {item.Role ? "👑 Admin" : "👤 User"} • Code: {item.code}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteUser(item.id)}
+                      style={{ backgroundColor: "#ef4444", padding: 8, borderRadius: 6 }}
+                    >
+                      <Ionicons name="trash" size={16} color="white" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
               )}
-            </View>
+            />
 
-            <View className="flex-row gap-4 items-center">
-              <TouchableOpacity onPress={() => promoteUser(item.id)} className="bg-green-500 p-3 rounded-lg">
-                <Ionicons name="star" size={20} color="white" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => demoteUser(item.id)} className="bg-yellow-500 p-3 rounded-lg">
-                <Ionicons name="arrow-undo" size={20} color="white" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => deleteUserHandler(item.id)} className="bg-red-500 p-3 rounded-lg">
-                <Ionicons name="trash" size={20} color="white" />
+            {/* Add User Form */}
+            <View style={{ backgroundColor: "#334155", padding: 12, borderRadius: 8, marginTop: 16 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
+                <Ionicons name="person-add" size={20} color="white" />
+                <Text style={{ color: "white", fontWeight: "bold", fontSize: 16, marginLeft: 8 }}>Neuer Nutzer</Text>
+              </View>
+
+              <View style={{ marginBottom: 8 }}>
+                <Text style={{ color: "#cbd5e1", marginBottom: 4 }}>Benutzername</Text>
+                <TextInput
+                  style={{
+                    backgroundColor: "#1e293b",
+                    color: "white",
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderRadius: 6,
+                  }}
+                  value={newUsername}
+                  onChangeText={setNewUsername}
+                  placeholder="Username"
+                  placeholderTextColor="#64748b"
+                />
+              </View>
+
+              <View style={{ marginBottom: 8 }}>
+                <Text style={{ color: "#cbd5e1", marginBottom: 4 }}>Passwort</Text>
+                <TextInput
+                  style={{
+                    backgroundColor: "#1e293b",
+                    color: "white",
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderRadius: 6,
+                  }}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="Passwort"
+                  placeholderTextColor="#64748b"
+                  secureTextEntry
+                />
+              </View>
+
+              <View style={{ marginBottom: 12 }}>
+                <TouchableOpacity
+                  onPress={() => setNewIsAdmin(!newIsAdmin)}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    backgroundColor: newIsAdmin ? "#10b981" : "#475569",
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderRadius: 6,
+                  }}
+                >
+                  <Ionicons name={newIsAdmin ? "checkmark-circle-sharp" : "ellipse-outline"} size={18} color="white" />
+                  <Text style={{ color: "white", marginLeft: 8 }}>Admin Rolle</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                onPress={handleAddUser}
+                disabled={loading}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: "#6366f1",
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  borderRadius: 6,
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="add-circle" size={18} color="white" />
+                <Text style={{ color: "white", fontWeight: "bold", marginLeft: 8 }}>Nutzer hinzufügen</Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
-      />
 
-      {/* Neuer User */}
-      <View className="bg-slate-700 p-4 rounded-xl mt-4">
-        <View className="flex-row items-center mb-2">
-          <Ionicons name="person-add" size={24} color="white" />
-          <Text className="text-dark-t1 font-semibold text-xl ml-2">Neuer Nutzer</Text>
-        </View>
+        {/* CODES TAB */}
+        {activeTab === "codes" && (
+          <View>
+            <Text style={{ color: "white", fontSize: 20, fontWeight: "bold", marginBottom: 12 }}>Code-Verwaltung</Text>
 
-        <View className="mb-4">
-          <Text className="text-dark-t2 mb-1">Benutzername</Text>
-          <View className="bg-slate-600 rounded-lg px-3 py-2">
-            <TextInput className="text-dark-t1" value={username} onChangeText={setUsername} />
-          </View>
-        </View>
+            {/* Codes List */}
+            <FlatList
+              scrollEnabled={false}
+              data={codes}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <View style={{ backgroundColor: "#334155", padding: 12, borderRadius: 8, marginBottom: 8 }}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    <View>
+                      <Text style={{ color: "white", fontWeight: "bold", fontSize: 16 }}>{item.code}</Text>
+                      <Text style={{ color: "#cbd5e1", fontSize: 12 }}>
+                        {item.genutzt ? "✅ Verwendet" : "⏳ Verfügbar"}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteCode(item.id)}
+                      style={{ backgroundColor: "#ef4444", padding: 8, borderRadius: 6 }}
+                    >
+                      <Ionicons name="trash" size={16} color="white" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            />
 
-        <View className="mb-4">
-          <Text className="text-dark-t2 mb-1">Passwort</Text>
-          <View className="bg-slate-600 rounded-lg px-3 py-2">
-            <TextInput className="text-dark-t1" value={password} onChangeText={setPassword} secureTextEntry />
-          </View>
-        </View>
+            {/* Add Code Form */}
+            <View style={{ backgroundColor: "#334155", padding: 12, borderRadius: 8, marginTop: 16 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
+                <Ionicons name="key" size={20} color="white" />
+                <Text style={{ color: "white", fontWeight: "bold", fontSize: 16, marginLeft: 8 }}>Neuer Code</Text>
+              </View>
 
-        <Text className="text-dark-t2 mb-1">Rolle</Text>
-        <RoleDropdown value={role} onChange={setRole} />
-
-        <Text className="text-dark-t2 mb-1">Zeit</Text>
-        <View className="text-dark-b3 rounded-lg px-3 py-2">
-          <SubscriptionTimePicker  key={subscriptionTimeKey} initialTime={subscriptionTime} onSave={setSubscriptionTime} />
-        </View>
-
-        <TouchableOpacity onPress={handleAddUser} className="flex-row items-center bg-indigo-500 px-6 py-3 rounded-xl mt-2 justify-center">
-          <Ionicons name="add-circle-outline" size={22} color="white" />
-          <Text className="text-dark-t1 font-semibold text-base ml-2">Nutzer hinzufügen</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Pi Verwaltung */}
-      <TouchableOpacity
-       onPress={() => { setEditPi(null); setOpen(true) }}
-        className="flex-row items-center bg-indigo-500 p-3 mb-20 rounded-xl mt-20 justify-center"
-      >
-        <Text className="text-white text-lg">Neuen Schrank hinzufügen</Text>
-      </TouchableOpacity>
-        <Modal visible={open} transparent={true} animationType="fade" >
-          <View className="flex-1 bg-black/70 justify-center">           
-              <Text className="text-dark-t1 text-xl font-bold mb-6">
-                {editPi?.id ? "Pi bearbeiten" : "Neuen Pi hinzufügen"}
-              </Text>
-
-              <PiForm 
-              onSave={(piData) => {
-              setPis(prev => {
-                const idx = prev.findIndex(p => p.id === piData.id);
-                if (idx >= 0) { 
-                const copy = [...prev]; 
-                copy[idx] = piData; 
-                return copy; 
-                }
-                return [piData, ...prev];
-              });
-              setOpen(false);
-              }}
-              onCancel={() => setOpen(false)}
+              <TextInput
+                style={{
+                  backgroundColor: "#1e293b",
+                  color: "white",
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 6,
+                  marginBottom: 12,
+                }}
+                value={newCode}
+                onChangeText={(text) => setNewCode(text.toUpperCase().slice(0, 8))}
+                placeholder="12345678"
+                placeholderTextColor="#64748b"
+                maxLength={8}
               />
+
+              <TouchableOpacity
+                onPress={handleAddCode}
+                disabled={loading}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: "#6366f1",
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  borderRadius: 6,
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="add-circle" size={18} color="white" />
+                <Text style={{ color: "white", fontWeight: "bold", marginLeft: 8 }}>Code hinzufügen</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-         
-      </Modal>
+        )}
+
+        {/* PIS TAB */}
+        {activeTab === "pis" && (
+          <View>
+            <Text style={{ color: "white", fontSize: 20, fontWeight: "bold", marginBottom: 12 }}>Raspberry Pi Management</Text>
+
+            {/* Pis List */}
+            <FlatList
+              scrollEnabled={false}
+              data={pis}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <View style={{ backgroundColor: "#334155", padding: 12, borderRadius: 8, marginBottom: 8 }}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    <View>
+                      <Text style={{ color: "white", fontWeight: "bold", fontSize: 16 }}>{item.name}</Text>
+                      <Text style={{ color: "#cbd5e1", fontSize: 12 }}>
+                        {item.ip_address}:{item.port}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleDeletePi(item.id)}
+                      style={{ backgroundColor: "#ef4444", padding: 8, borderRadius: 6 }}
+                    >
+                      <Ionicons name="trash" size={16} color="white" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            />
+
+            {/* Add Pi Form */}
+            <View style={{ backgroundColor: "#334155", padding: 12, borderRadius: 8, marginTop: 16 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
+                <Ionicons name="hardware-chip" size={20} color="white" />
+                <Text style={{ color: "white", fontWeight: "bold", fontSize: 16, marginLeft: 8 }}>Neuer Raspberry Pi</Text>
+              </View>
+
+              <View style={{ marginBottom: 8 }}>
+                <Text style={{ color: "#cbd5e1", marginBottom: 4 }}>Name</Text>
+                <TextInput
+                  style={{
+                    backgroundColor: "#1e293b",
+                    color: "white",
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderRadius: 6,
+                  }}
+                  value={piName}
+                  onChangeText={setPiName}
+                  placeholder="z.B. Pi-Wohnzimmer"
+                  placeholderTextColor="#64748b"
+                />
+              </View>
+
+              <View style={{ marginBottom: 8 }}>
+                <Text style={{ color: "#cbd5e1", marginBottom: 4 }}>IP Address</Text>
+                <TextInput
+                  style={{
+                    backgroundColor: "#1e293b",
+                    color: "white",
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderRadius: 6,
+                  }}
+                  value={piIp}
+                  onChangeText={setPiIp}
+                  placeholder="192.168.1.100"
+                  placeholderTextColor="#64748b"
+                />
+              </View>
+
+              <View style={{ marginBottom: 12 }}>
+                <Text style={{ color: "#cbd5e1", marginBottom: 4 }}>Port</Text>
+                <TextInput
+                  style={{
+                    backgroundColor: "#1e293b",
+                    color: "white",
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderRadius: 6,
+                  }}
+                  value={piPort}
+                  onChangeText={setPiPort}
+                  placeholder="3000"
+                  placeholderTextColor="#64748b"
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <TouchableOpacity
+                onPress={handleAddPi}
+                disabled={loading}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: "#6366f1",
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  borderRadius: 6,
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="add-circle" size={18} color="white" />
+                <Text style={{ color: "white", fontWeight: "bold", marginLeft: 8 }}>Pi hinzufügen</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </View>
     </ScrollView>
   );
 }
