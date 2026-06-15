@@ -2,17 +2,17 @@
     "files.exclude": {
         "**/.git": false,
         "**/.svn": false,
-        "**/.hg": true,
-        "**/.DS_Store": true,
-        "**/Thumbs.db": true,
-        "**/CVS": true,
-        "**/*.git": true,
-        "**/.vscode": true,
-        ".vscode": true,
+        "**/.hg": false,
+        "**/.DS_Store": false,
+        "**/Thumbs.db": false,
+        "**/CVS": false,
+        "**/*.git": false,
+        "**/.vscode": false,
+        ".vscode": false,
         "Frontend/node_modules": false,
-        "**/node_modules": true,
+        "**/node_modules": false,
         "Frontend/*.*": false,
-        "node_modules": true
+        "node_modules": false
     },
     "explorerExclude.backup": {}
 }
