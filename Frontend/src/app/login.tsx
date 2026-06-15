@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, TextInput, TouchableOpacity, Animated } from "react-native";
+import { View, Text, TextInput, Pressable, Animated } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useAuthStore } from "../store/authStore";
 import { useUserStore } from "../store/userStore"; 
 
@@ -11,6 +12,7 @@ type FormData = {
 };
 
 export default function LoginForm() {
+  const router = useRouter();
   const { logIn } = useAuthStore();
   const users = useUserStore((s) => s.users); 
   const { control, handleSubmit, formState: { errors } } = useForm<FormData>();
@@ -31,8 +33,6 @@ export default function LoginForm() {
 
       useAuthStore.setState({
         isadmin: !!foundUser.isadmin,
-        iswhitecard: !!foundUser.iswhitecard,
-        istempadmin: !!foundUser.istempadmin,
       });
     } else {
       setIsLocked(false);
@@ -42,6 +42,8 @@ export default function LoginForm() {
 
   return (
     <View className="flex-1 bg-slate-900 items-center justify-center px-6">
+      <Text className="text-3xl font-bold text-white mb-8">Login</Text>
+
       {/* Username */}
       <Controller
         control={control}
@@ -75,12 +77,12 @@ export default function LoginForm() {
                 secureTextEntry={sichtbar}
               />
             </View>
-            <TouchableOpacity
+            <Pressable
               onPress={() => setSichtbar(!sichtbar)}
               className="absolute right-4 top-3"
             >
               <Ionicons name={sichtbar ? "eye-off" : "eye"} size={22} color="gray" />
-            </TouchableOpacity>
+            </Pressable>
           </View>
         )}
       />
@@ -88,13 +90,23 @@ export default function LoginForm() {
 
       {error && <Text className="text-red-400">{error}</Text>}
 
-      <TouchableOpacity
+      <Pressable
         className="flex-row items-center bg-indigo-500 px-6 py-3 rounded-xl mt-3"
         onPress={handleSubmit(onSubmit)}
       >
         <Ionicons name="checkmark-circle-outline" size={22} color="white" />
-        <Text className="text-white font-semibold text-base ml-2">Confirm</Text>
-      </TouchableOpacity>
+        <Text className="text-white font-semibold text-base ml-2">Login</Text>
+      </Pressable>
+
+      {/* Register Button */}
+      <Pressable
+        onPress={() => router.push("/register")}
+        className="mt-6 px-6 py-3"
+      >
+        <Text className="text-indigo-400 text-center">
+          Noch kein Account? <Text className="font-bold">Registrieren</Text>
+        </Text>
+      </Pressable>
 
       {isLocked && (
         <Text className="text-green-400 mt-5 text-lg">✅ Erfolgreich eingeloggt!</Text>
@@ -103,7 +115,6 @@ export default function LoginForm() {
   );
 }
 
-/* FloatingInput bleibt unverändert */
 const FloatingInput = ({ label, value, onChangeText, secureTextEntry, icon }: {
   label: string;
   value?: string;

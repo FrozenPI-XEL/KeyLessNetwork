@@ -1,17 +1,14 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { getItem, setItem, deleteItemAsync } from "expo-secure-store";
+import { supabase } from "../hooks/supabase-client";
 
 type UserState = {
   isLoggedIn: boolean;
   isadmin: boolean;
-  istempadmin: boolean;
-  iswhitecard: boolean;
-  username?: string; 
-  logIn: (username?: string) => void; 
+  username?: string;
+  logIn: (username: string) => Promise<void>;
   logOut: () => void;
-  WhiteCardIn: () => void;
-  WhiteCardOut: () => void;
 };
 
 export const useAuthStore = create(
@@ -19,31 +16,46 @@ export const useAuthStore = create(
     (set) => ({
       isLoggedIn: false,
       isadmin: false,
-      istempadmin: false,
-      iswhitecard: false,
-      username: undefined, // initial
+      username: undefined,
 
-      logIn: (username?: string) =>
-        set((state) => ({
-          ...state,
-          isLoggedIn: true,
-          username: username ?? state.username,
-        })),
+      logIn: async (username: string) => {
+        try {
+          console.log("🔍 Login attempt with username:", username);
+
+          // Fetch user from codes table
+          const { data, error } = await supabase
+            .from("codes")
+            .select("username, Role")
+            .eq("username", username)
+            .single();
+
+          if (error || !data) {
+            console.error("❌ User not found:", error);
+            throw new Error("User nicht gefunden");
+          }
+
+          console.log("✅ User found:", data);
+
+          // Set state with Role from database
+          set({
+            isLoggedIn: true,
+            username: data.username,
+            isadmin: data.Role === true, // Role true = isadmin true, Role false = isadmin false
+          });
+
+          console.log("✅ Login successful!");
+        } catch (err) {
+          console.error("❌ Login error:", err);
+          throw err;
+        }
+      },
 
       logOut: () =>
         set(() => ({
           isLoggedIn: false,
           isadmin: false,
-          istempadmin: false,
-          iswhitecard: false,
           username: undefined,
         })),
-
-      WhiteCardIn: () =>
-        set((state) => ({ ...state, istempadmin: true })),
-
-      WhiteCardOut: () =>
-        set((state) => ({ ...state, istempadmin: false })),
     }),
     {
       name: "auth-store",

@@ -5,7 +5,7 @@ import { useAuthStore } from "../../store/authStore";
 import { Ionicons, MaterialIcons} from "@expo/vector-icons";
 
 export default function TabsLayout() {
-  const { isadmin, istempadmin, iswhitecard } = useAuthStore();
+  const { isadmin } = useAuthStore();
 
   return (
     <Tabs
@@ -23,7 +23,7 @@ export default function TabsLayout() {
         headerTitleAlign: "center",
       }}
     >
-      <Stack.Protected guard={isadmin || istempadmin}>
+      <Stack.Protected guard={isadmin}>
         <Tabs.Screen
           name="admin"
           options={{
