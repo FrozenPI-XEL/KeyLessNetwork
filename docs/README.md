@@ -1,7 +1,7 @@
 # KeyLessNetwork - Projektdokumentation
 
 ## Übersicht
-KeyLessNetwork ist eine mobile Anwendung (React Native mit Expo) für die sichere Benutzerverwaltung mit Supabase-Integration. Das System basiert auf 8-stelligen Registrierungscodes.
+KeyLessNetwork ist eine mobile Anwendung (React Native mit Expo) für die sichere Benutzerverwaltung mit Supabase-Integration.
 
 ## Ordnerstruktur
 
