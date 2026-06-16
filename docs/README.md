@@ -15,7 +15,9 @@ KeyLessNetwork/
 │   │   ├── app/
 │   │   │   ├── _layout.tsx       # Root-Layout mit Stack Navigation
 │   │   │   ├── login.tsx         # Login-Bildschirm mit Registrierung-Link
-│   │   │   ├── register.tsx      # Registrierung mit Code-Validierung
+│   │   │   ├── register.tsx      # Registrierung mit 
+Code-Validierung
+|   |   |   ├──index.tsx
 │   │   │   ├── profile-setup.tsx # Profil-Erstellung (Username + Passwort)
 │   │   │   └── (tabs)/
 │   │   │       ├── _layout.tsx   # Tab Navigation

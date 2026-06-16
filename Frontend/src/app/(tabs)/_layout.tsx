@@ -9,7 +9,7 @@ export default function TabsLayout() {
 
   return (
     <Tabs
-      initialRouteName="index"
+      initialRouteName="home"
       screenOptions={{
         tabBarStyle: {
           backgroundColor: "#0f172b",
@@ -36,7 +36,7 @@ export default function TabsLayout() {
       </Stack.Protected>
 
       <Tabs.Screen
-        name="index"
+        name="home"
         options={{
           title: "Startseite",
           tabBarIcon: ({ color, size }) => (

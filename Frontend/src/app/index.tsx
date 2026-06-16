@@ -3,6 +3,7 @@ import React from "react";
 import { View, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+
 export default function IndexPage() {
   const router = useRouter();
 

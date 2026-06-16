@@ -5,7 +5,7 @@ import { useAuthStore } from "../store/authStore";
 
 
 export default function RootLayout() {
-  const { isLoggedIn, isadmin } = useAuthStore();
+  const { isLoggedIn} = useAuthStore();
 
   return (
     
