@@ -1,5 +1,4 @@
-import { Tabs } from "expo-router";
-import { Stack } from "expo-router";
+import { Tabs, Stack } from "expo-router";
 import React from "react";
 import { useAuthStore } from "../../store/authStore";
 import { Ionicons, MaterialIcons} from "@expo/vector-icons";

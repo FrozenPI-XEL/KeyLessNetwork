@@ -4,13 +4,18 @@ module.exports = function (api) {
   return {
     presets: ["babel-preset-expo"],
     plugins: [
-      "nativewind/babel",
       [
         "module-resolver",
         {
           root: ["./"],
           alias: {
             "@": "./src",
+            "@components": "./src/components",
+            "@screens": "./src/screens",
+            "@hooks": "./src/hooks",
+            "@services": "./src/services",
+            "@utils": "./src/utils",
+            "@assets": "./assets",
           },
         },
       ],

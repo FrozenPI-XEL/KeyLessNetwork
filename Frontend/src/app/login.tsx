@@ -4,7 +4,7 @@ import { useForm, Controller } from "react-hook-form";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../store/authStore";
-import { useUserStore } from "../store/userStore"; 
+import { supabase } from "../hooks/supabase-client";
 
 type FormData = {
   username: string;
@@ -14,37 +14,59 @@ type FormData = {
 export default function LoginForm() {
   const router = useRouter();
   const { logIn } = useAuthStore();
-  const users = useUserStore((s) => s.users); 
-  const { control, handleSubmit, formState: { errors } } = useForm<FormData>();
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<FormData>({
+    defaultValues: {
+      username: "",
+      password: "",
+    },
+  });
+
   const [isLocked, setIsLocked] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sichtbar, setSichtbar] = useState<boolean>(true);
+  const [sichtbar, setSichtbar] = useState(true);
 
-  const onSubmit = (data: FormData) => {
-    const foundUser = users.find(
-      (u) => u.username === data.username && u.password === data.password
-    );
+  const onSubmit = async (data: FormData) => {
+    setError(null);
+    setIsLoading(true);
 
-    if (foundUser) {
+    try {
+      const { data: userData, error: loginError } = await supabase
+        .from("codes")
+        .select("username, code2, Role")
+        .eq("username", data.username.trim())
+        .eq("code2", data.password)
+        .single();
+
+      if (loginError || !userData) {
+        setIsLocked(false);
+        setError("Benutzername oder Passwort falsch!");
+        setIsLoading(false);
+        return;
+      }
+
       setIsLocked(true);
-      setError(null);
-
-      logIn(foundUser.username);
-
-      useAuthStore.setState({
-        isadmin: !!foundUser.isadmin,
-      });
-    } else {
-      setIsLocked(false);
-      setError("Benutzername oder Passwort falsch!");
+      logIn(userData.username, userData.Role === true);
+      router.replace("/(tabs)/home");
+    } catch (err) {
+      console.error(err);
+      setError("Ein Fehler ist aufgetreten. Bitte versuche es erneut.");
     }
+
+    setIsLoading(false);
   };
 
   return (
-    <View className="flex-1 bg-slate-900 items-center justify-center px-6">
-      <Text className="text-3xl font-bold text-white mb-8">Login</Text>
+    <View style={{ flex: 1, backgroundColor: "#0f172a", alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}>
+      <Text style={{ fontSize: 30, fontWeight: "bold", color: "white", marginBottom: 32 }}>
+        Login
+      </Text>
 
-      {/* Username */}
       <Controller
         control={control}
         name="username"
@@ -59,16 +81,20 @@ export default function LoginForm() {
           />
         )}
       />
-      {errors.username && <Text className="text-red-400">{errors.username.message}</Text>}
 
-      {/* Passwort */}
+      {errors.username && (
+        <Text style={{ color: "#f87171" }}>
+          {errors.username.message}
+        </Text>
+      )}
+
       <Controller
         control={control}
         name="password"
         rules={{ required: "Passwort ist erforderlich" }}
         render={({ field: { onChange, value } }) => (
-          <View className="flex-row items-center w-full">
-            <View className="flex-1">
+          <View style={{ flexDirection: "row", alignItems: "center", width: "100%" }}>
+            <View style={{ flex: 1 }}>
               <FloatingInput
                 label="Passwort"
                 icon="lock-closed"
@@ -77,45 +103,74 @@ export default function LoginForm() {
                 secureTextEntry={sichtbar}
               />
             </View>
+
             <Pressable
               onPress={() => setSichtbar(!sichtbar)}
-              className="absolute right-4 top-3"
+              style={{ position: "absolute", right: 16, top: 12 }}
             >
-              <Ionicons name={sichtbar ? "eye-off" : "eye"} size={22} color="gray" />
+              <Ionicons
+                name={sichtbar ? "eye-off" : "eye"}
+                size={22}
+                color="gray"
+              />
             </Pressable>
           </View>
         )}
       />
-      {errors.password && <Text className="text-red-400">{errors.password.message}</Text>}
 
-      {error && <Text className="text-red-400">{error}</Text>}
+      {errors.password && (
+        <Text style={{ color: "#f87171" }}>
+          {errors.password.message}
+        </Text>
+      )}
+
+      {error && (
+        <Text style={{ color: "#f87171" }}>
+          {error}
+        </Text>
+      )}
 
       <Pressable
-        className="flex-row items-center bg-indigo-500 px-6 py-3 rounded-xl mt-3"
+        style={{ flexDirection: "row", alignItems: "center", backgroundColor: isLoading ? "#6b7280" : "#6366f1", paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginTop: 12 }}
         onPress={handleSubmit(onSubmit)}
+        disabled={isLoading}
       >
-        <Ionicons name="checkmark-circle-outline" size={22} color="white" />
-        <Text className="text-white font-semibold text-base ml-2">Login</Text>
+        <Ionicons
+          name="checkmark-circle-outline"
+          size={22}
+          color="white"
+        />
+
+        <Text style={{ color: "white", fontWeight: "600", fontSize: 16, marginLeft: 8 }}>
+          {isLoading ? "Anmelden..." : "Login"}
+        </Text>
       </Pressable>
 
-      {/* Register Button */}
       <Pressable
         onPress={() => router.push("/register")}
-        className="mt-6 px-6 py-3"
+        style={{ marginTop: 24, paddingHorizontal: 24, paddingVertical: 12 }}
       >
-        <Text className="text-indigo-400 text-center">
-          Noch kein Account? <Text className="font-bold">Registrieren</Text>
+        <Text style={{ color: "#818cf8", textAlign: "center" }}>
+          Noch kein Account? <Text style={{ fontWeight: "bold" }}>Registrieren</Text>
         </Text>
       </Pressable>
 
       {isLocked && (
-        <Text className="text-green-400 mt-5 text-lg">✅ Erfolgreich eingeloggt!</Text>
+        <Text style={{ color: "#4ade80", marginTop: 20, fontSize: 18 }}>
+          ✅ Erfolgreich eingeloggt!
+        </Text>
       )}
     </View>
   );
 }
 
-const FloatingInput = ({ label, value, onChangeText, secureTextEntry, icon }: {
+const FloatingInput = ({
+  label,
+  value,
+  onChangeText,
+  secureTextEntry,
+  icon,
+}: {
   label: string;
   value?: string;
   onChangeText: (text: string) => void;
@@ -136,18 +191,33 @@ const FloatingInput = ({ label, value, onChangeText, secureTextEntry, icon }: {
   const labelStyle = {
     position: "absolute" as const,
     left: 40,
-    top: animatedValue.interpolate({ inputRange: [0, 1], outputRange: [18, -8] }),
-    fontSize: animatedValue.interpolate({ inputRange: [0, 1], outputRange: [16, 12] }),
+    top: animatedValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: [18, -8],
+    }),
+    fontSize: animatedValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: [16, 12],
+    }),
     color: "#aaa",
   };
 
   return (
-    <View className="flex-row items-center border-b-2 border-slate-600 mb-6 w-full relative pb-1">
-      <Ionicons name={icon} size={20} color="#666" style={{ marginRight: 8 }} />
-      <View className="flex-1">
-        <Animated.Text style={labelStyle}>{label}</Animated.Text>
+    <View style={{ flexDirection: "row", alignItems: "center", borderBottomWidth: 2, borderBottomColor: "#475569", marginBottom: 24, width: "100%", position: "relative", paddingBottom: 4 }}>
+      <Ionicons
+        name={icon}
+        size={20}
+        color="#666"
+        style={{ marginRight: 8 }}
+      />
+
+      <View style={{ flex: 1 }}>
+        <Animated.Text style={labelStyle}>
+          {label}
+        </Animated.Text>
+
         <TextInput
-          className="h-10 text-xl text-white"
+          style={{ height: 40, fontSize: 20, color: "white" }}
           value={value}
           secureTextEntry={secureTextEntry}
           onChangeText={onChangeText}

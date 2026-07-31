@@ -19,7 +19,7 @@ export default function ProfileSetupPage() {
 
   if (!code) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#1e293b", alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}>
+      <View style={{ flex: 1, backgroundColor: "#0f172a", alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}>
         <Text style={{ color: "#ef5350", fontSize: 16 }}>Fehler: Kein Code gefunden</Text>
         <Pressable onPress={() => router.back()} style={{ marginTop: 16 }}>
           <Text style={{ color: "#a78bfa" }}>Zurück zur Registrierung</Text>
@@ -47,7 +47,7 @@ export default function ProfileSetupPage() {
       const { error: updateError } = await supabase
         .from("codes")
         .update({
-          username: data.username,
+          username: data.username.trim(),
           code2: data.code2,
         })
         .eq("code", code);
@@ -86,7 +86,6 @@ export default function ProfileSetupPage() {
               icon="person-circle"
               value={value}
               onChangeText={onChange}
-              placeholder="max_mustermann"
             />
           )}
         />
@@ -108,7 +107,6 @@ export default function ProfileSetupPage() {
               icon="lock-closed"
               value={value}
               onChangeText={onChange}
-              placeholder="ABCD1234"
               secureTextEntry={true}
             />
           )}

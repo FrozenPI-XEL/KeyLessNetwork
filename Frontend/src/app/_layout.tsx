@@ -13,11 +13,11 @@ export default function RootLayout() {
       <StatusBar style="auto" />
       <Stack>
       
-        <Stack.Protected guard={!isLoggedIn}>
+       
           <Stack.Screen
             name="index"
             options={{
-              title: "Willkommen",
+              title: "Welcome",
               headerShown: false,
             }}
           />
@@ -50,8 +50,7 @@ export default function RootLayout() {
               headerTitleStyle: { fontWeight: "bold" },
               headerTitleAlign: "center",
             }}
-          />
-        </Stack.Protected>        
+          />       
           <Stack.Protected guard={isLoggedIn}>
             <Stack.Screen
               name="(tabs)"
