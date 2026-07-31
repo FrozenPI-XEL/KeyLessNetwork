@@ -95,7 +95,8 @@ export default function AdminPanel() {
     try {
       const { error } = await supabase.from("codes").insert([
         {
-          username: newUsername,
+          username: newUsername.trim(),
+          code2: newPassword,
           code: `USER-${Date.now()}`,
           genutzt: true,
           Role: newIsAdmin,
@@ -256,17 +257,17 @@ export default function AdminPanel() {
   if (!isadmin) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#1e293b" }}>
-        <Text style={{ color: "white", fontSize: 18 }}>❌ Du hast keine Admin-Berechtigung</Text>
+        <Text style={{ color: "white", fontSize: 18 }}> Du hast keine Admin-Berechtigung</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: "#1e293b" }}>
+    <ScrollView style={{ flex: 1, backgroundColor: "#0f172a" }}>
       <View style={{ paddingHorizontal: 16, paddingVertical: 16 }}>
         {/* Header */}
         <Text style={{ color: "white", fontSize: 28, fontWeight: "bold", marginBottom: 16, textAlign: "center" }}>
-          👑 Admin Panel
+          Admin Panel
         </Text>
 
         {/* Tab Buttons */}
@@ -280,7 +281,7 @@ export default function AdminPanel() {
               backgroundColor: activeTab === "users" ? "#6366f1" : "#475569",
             }}
           >
-            <Text style={{ color: "white", fontWeight: "bold", textAlign: "center" }}>👤 Nutzer</Text>
+            <Text style={{ color: "white", fontWeight: "bold", textAlign: "center" }}> Nutzer</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -292,7 +293,7 @@ export default function AdminPanel() {
               backgroundColor: activeTab === "codes" ? "#6366f1" : "#475569",
             }}
           >
-            <Text style={{ color: "white", fontWeight: "bold", textAlign: "center" }}>🔑 Codes</Text>
+            <Text style={{ color: "white", fontWeight: "bold", textAlign: "center" }}>Codes</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -304,7 +305,7 @@ export default function AdminPanel() {
               backgroundColor: activeTab === "pis" ? "#6366f1" : "#475569",
             }}
           >
-            <Text style={{ color: "white", fontWeight: "bold", textAlign: "center" }}>🥧 Pi</Text>
+            <Text style={{ color: "white", fontWeight: "bold", textAlign: "center" }}> Pi</Text>
           </TouchableOpacity>
         </View>
 
@@ -326,7 +327,7 @@ export default function AdminPanel() {
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: "white", fontWeight: "bold", fontSize: 16 }}>{item.username}</Text>
                       <Text style={{ color: "#cbd5e1", fontSize: 12 }}>
-                        {item.Role ? "👑 Admin" : "👤 User"} • Code: {item.code}
+                        {item.Role ? " Admin" : " User"} • Code: {item.code}
                       </Text>
                     </View>
                     <TouchableOpacity
@@ -435,7 +436,7 @@ export default function AdminPanel() {
                     <View>
                       <Text style={{ color: "white", fontWeight: "bold", fontSize: 16 }}>{item.code}</Text>
                       <Text style={{ color: "#cbd5e1", fontSize: 12 }}>
-                        {item.genutzt ? "✅ Verwendet" : "⏳ Verfügbar"}
+                        {item.genutzt ? " Verwendet" : " Verfügbar"}
                       </Text>
                     </View>
                     <TouchableOpacity

@@ -56,7 +56,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#1e293b", alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}>
+    <View style={{ flex: 1, backgroundColor: "#0f172a", alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}>
       <Text style={{ fontSize: 28, fontWeight: "bold", color: "white", marginBottom: 32 }}>Registrierung</Text>
 
       <View style={{ marginTop: 40, marginBottom: 40, width: "100%" }}>
@@ -71,9 +71,9 @@ export default function RegisterPage() {
           render={({ field: { onChange, value } }) => (
             <FloatingInput
               label="8-stelliger Code"
-              labelStyle={{ color: error ? "#f87171" : "white" }}
+              labelStyle={{ color: error ? "#f87171" : "grey" }}
               icon="key"
-              iconColor={error ? "#f87171" : "white"}
+              iconColor={error ? "#f87171" : "grey"}
               value={value}
               onChangeText={onChange}
             />
@@ -164,7 +164,7 @@ const FloatingInput = ({
           style={{
             height: 40,
             fontSize: 20,
-            color: "white",
+            color: "grey",
           }}
           value={value}
           placeholder={placeholder}
