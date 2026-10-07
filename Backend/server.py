@@ -7,14 +7,18 @@ import threading
 
 app = FastAPI()
 
+MOTOR_RUN_SECONDS = 0.1
+LED_ACTIVE_SECONDS = 1.5
+
 GPIO.setmode(GPIO.BCM)
 
 # GPIO Pins für die Motoren
 motors = {
-    1: {"in1": 17, "in2": 15,  "state": "stopped"},
-    2: {"in1": 27, "in2": 23,  "state": "stopped"},
+    1: {"in1": 17, "in2": 15, "state": "closed"},
+    2: {"in1": 27, "in2": 23, "state": "closed"},
 }
 
+motor_lock = threading.Lock()
 
 for m in motors.values():
     GPIO.setup(m["in1"], GPIO.OUT)
@@ -23,7 +27,6 @@ for m in motors.values():
 def motor_stop(m):
     GPIO.output(m["in1"], GPIO.LOW)
     GPIO.output(m["in2"], GPIO.LOW)
-
 
 def motor_open(m,):
     GPIO.output(m["in1"], GPIO.HIGH)
@@ -57,15 +60,21 @@ def rotate_led(color):
     with led_lock:
         pixels.fill((0, 0, 0, 0))
 
-def set_status_leds():
+def set_status_leds(state: str | None = None, duration: float | None = None):
+    if state == "open":
+        color = (0, 255, 0, 0)
+    elif state == "closed":
+        color = (255, 0, 0, 0)
+    else:
+        color = (0, 0, 0, 0)
+
     with led_lock:
-        for m in motors.values():
-            if m["state"] == "open":
-                pixels.fill((0, 255, 0, 0))  # Grün
-            elif m["state"] == "closed":
-                pixels.fill((255, 0, 0, 0))  # Rot
-            else:
-                pixels.fill((0, 0, 0, 0))
+        pixels.fill(color)
+
+    if duration is not None:
+        time.sleep(duration)
+        with led_lock:
+            pixels.fill((0, 0, 0, 0))
 
 @app.get("/health")
 def health():
@@ -74,54 +83,79 @@ def health():
 @app.post("/lock/{lock_id}/open")
 def open_lock(lock_id: int):
     global animation_thread, stop_animation
+
     if lock_id not in motors:
         return {"success": False, "error": "Invalid lock"}
 
-    m = motors[lock_id]
+    with motor_lock:
+        m = motors[lock_id]
 
-    # Starte rotierende Animation
-    stop_animation = True
-    if animation_thread:
+        if m["state"] == "open":
+            return {
+                "success": False,
+                "error": "Motor is already open. Close it first."
+            }
+
+        stop_animation = True
+        if animation_thread:
+            animation_thread.join()
+
+        animation_thread = threading.Thread(
+            target=rotate_led,
+            args=((0, 255, 0, 0),)
+        )
+        animation_thread.start()
+
+        motor_open(m)
+        time.sleep(MOTOR_RUN_SECONDS)
+        motor_stop(m)
+
+        m["state"] = "open"
+
+        stop_animation = True
         animation_thread.join()
-    animation_thread = threading.Thread(target=rotate_led, args=((0, 255, 0, 0),))
-    animation_thread.start()
+        set_status_leds(m["state"], duration=LED_ACTIVE_SECONDS)
 
-    motor_open(m)
-    time.sleep(2)
-    motor_stop(m)
-    m["state"] = "open"
+        return {"success": True, "lock": lock_id, "state": m["state"]}
 
-    stop_animation = True
-    animation_thread.join()
-    set_status_leds()
-
-    return {"success": True, "lock": lock_id, "state": m["state"]}
 
 @app.post("/lock/{lock_id}/close")
 def close_lock(lock_id: int):
     global animation_thread, stop_animation
+
     if lock_id not in motors:
         return {"success": False, "error": "Invalid lock"}
 
-    m = motors[lock_id]
+    with motor_lock:
+        m = motors[lock_id]
 
-    # Starte rotierende Animation
-    stop_animation = True
-    if animation_thread:
+        if m["state"] == "closed":
+            return {
+                "success": False,
+                "error": "Motor is already closed. Open it first."
+            }
+
+        stop_animation = True
+        if animation_thread:
+            animation_thread.join()
+
+        animation_thread = threading.Thread(
+            target=rotate_led,
+            args=((255, 0, 0, 0),)
+        )
+        animation_thread.start()
+
+        motor_close(m)
+        time.sleep(MOTOR_RUN_SECONDS)
+        motor_stop(m)
+
+        m["state"] = "closed"
+
+        stop_animation = True
         animation_thread.join()
-    animation_thread = threading.Thread(target=rotate_led, args=((255, 0, 0, 0),))
-    animation_thread.start()
+        set_status_leds(m["state"], duration=LED_ACTIVE_SECONDS)
 
-    motor_close(m)
-    time.sleep(2)
-    motor_stop(m)
-    m["state"] = "closed"
-
-    stop_animation = True
-    animation_thread.join()
-    set_status_leds()
-
-    return {"success": True, "lock": lock_id, "state": m["state"]}
+        return {"success": True, "lock": lock_id, "state": m["state"]}
 
 @app.get("/lock/{lock_id}/status")
 def lock_status(lock_id: int):
@@ -131,38 +165,3 @@ def lock_status(lock_id: int):
     m = motors[lock_id]
     return {"success": True, "lock": lock_id, "state": m["state"]}
 
-@app.get("/rainbow")
-def rainbow():
-    def wheel(pos):
-        pos = pos % 256
-        if pos < 85:
-            return (255 - pos*3, pos*3, 0, 0)
-        elif pos < 170:
-            pos -= 85
-            return (0, 255 - pos*3, pos*3, 0)
-        else:
-            pos -= 170
-            return (pos*3, 0, 255 - pos*3, 0)
-
-    global animation_thread, stop_animation
-    stop_animation = True
-    if animation_thread:
-        animation_thread.join()
-
-    def rainbow_animation():
-        global stop_animation
-        stop_animation = False
-        while not stop_animation:
-            for i in range(256):
-                if stop_animation:
-                    break
-                with led_lock:
-                    for j in range(NUM_LEDS):
-                        pixels[j] = wheel((i + j*8) & 255)
-                time.sleep(0.05)
-        with led_lock:
-            pixels.fill((0, 0, 0, 0))
-
-    animation_thread = threading.Thread(target=rainbow_animation)
-    animation_thread.start()
-    return {"success": True, "effect": "rainbow"}

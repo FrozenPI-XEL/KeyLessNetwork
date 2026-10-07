@@ -39,18 +39,15 @@ export default function AdminPanel() {
 
   const [activeTab, setActiveTab] = useState("users");
   const [loading, setLoading] = useState(false);
-
-  // Users Tab State
+ 
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newIsAdmin, setNewIsAdmin] = useState(false);
-
-  // Codes Tab State
+ 
   const [codes, setCodes] = useState<CodeItem[]>([]);
   const [newCode, setNewCode] = useState("");
 
-  // Pis Tab State
   const [pis, setPis] = useState<RaspberryPi[]>([]);
   const [piName, setPiName] = useState("");
   const [piIp, setPiIp] = useState("");
@@ -70,7 +67,6 @@ export default function AdminPanel() {
     setLoading(false);
   };
 
-  // ===== USERS TAB =====
   const loadUsers = async () => {
     try {
       const { data, error } = await supabase
@@ -95,8 +91,7 @@ export default function AdminPanel() {
     try {
       const { error } = await supabase.from("codes").insert([
         {
-          username: newUsername.trim(),
-          code2: newPassword,
+          username: newUsername,
           code: `USER-${Date.now()}`,
           genutzt: true,
           Role: newIsAdmin,
@@ -135,7 +130,6 @@ export default function AdminPanel() {
     ]);
   };
 
-  // ===== CODES TAB =====
   const loadCodes = async () => {
     try {
       const { data, error } = await supabase
@@ -191,8 +185,7 @@ export default function AdminPanel() {
       },
     ]);
   };
-
-  // ===== PIS TAB =====
+1234567812345678
   const loadPis = async () => {
     try {
       const { data, error } = await supabase
@@ -257,17 +250,17 @@ export default function AdminPanel() {
   if (!isadmin) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#1e293b" }}>
-        <Text style={{ color: "white", fontSize: 18 }}> Du hast keine Admin-Berechtigung</Text>
+        <Text style={{ color: "white", fontSize: 18 }}>❌ Du hast keine Admin-Berechtigung</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: "#0f172a" }}>
+    <ScrollView style={{ flex: 1, backgroundColor: "#1e293b" }}>
       <View style={{ paddingHorizontal: 16, paddingVertical: 16 }}>
         {/* Header */}
         <Text style={{ color: "white", fontSize: 28, fontWeight: "bold", marginBottom: 16, textAlign: "center" }}>
-          Admin Panel
+           Admin Panel
         </Text>
 
         {/* Tab Buttons */}
@@ -293,7 +286,7 @@ export default function AdminPanel() {
               backgroundColor: activeTab === "codes" ? "#6366f1" : "#475569",
             }}
           >
-            <Text style={{ color: "white", fontWeight: "bold", textAlign: "center" }}>Codes</Text>
+            <Text style={{ color: "white", fontWeight: "bold", textAlign: "center" }}> Codes</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -327,7 +320,7 @@ export default function AdminPanel() {
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: "white", fontWeight: "bold", fontSize: 16 }}>{item.username}</Text>
                       <Text style={{ color: "#cbd5e1", fontSize: 12 }}>
-                        {item.Role ? " Admin" : " User"} • Code: {item.code}
+                        {item.Role ? "👑 Admin" : "👤 User"} • Code: {item.code}
                       </Text>
                     </View>
                     <TouchableOpacity
@@ -436,7 +429,7 @@ export default function AdminPanel() {
                     <View>
                       <Text style={{ color: "white", fontWeight: "bold", fontSize: 16 }}>{item.code}</Text>
                       <Text style={{ color: "#cbd5e1", fontSize: 12 }}>
-                        {item.genutzt ? " Verwendet" : " Verfügbar"}
+                        {item.genutzt ? "✅ Verwendet" : "⏳ Verfügbar"}
                       </Text>
                     </View>
                     <TouchableOpacity

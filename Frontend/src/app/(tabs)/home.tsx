@@ -17,7 +17,7 @@ export default function Index() {
     >
       <StatusBar style="light" />
 
-      <Ionicons name="rocket" size={120} color="white" style={{ marginVertical: 20 }} />
+      <Ionicons name="rocket" size={120} color="white" style={{ marginTop: 10 , marginBottom: 30 }} />
 
       <Text
         style={{
@@ -44,7 +44,7 @@ export default function Index() {
           by Digiclub e.v
         </Text>
         <Text style={{ color: "#94a3b8", fontSize: 14, fontWeight: "bold" }}>
-          1.0 DevBuild
+          2.0 DevBuild
         </Text>
       </View>
     </ScrollView>

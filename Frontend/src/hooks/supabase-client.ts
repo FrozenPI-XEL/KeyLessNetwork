@@ -24,7 +24,7 @@ export const getSupabase = () => {
   return supabaseClient;
 };
 
-// Lazy initialization
+
 export const supabase = new Proxy({} as any, {
   get: (target, prop) => {
     const client = getSupabase();
