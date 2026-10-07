@@ -1,15 +1,14 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  ScrollView,
 } from "react-native";
 
 const PI_IP = "192.168.178.195";
-const PI_PORT = 5000;
+const PI_PORT = 5001;
 
 const fetchTimeout = (url: string, opts: RequestInit = {}, ms = 3000) =>
   Promise.race([
@@ -19,6 +18,7 @@ const fetchTimeout = (url: string, opts: RequestInit = {}, ms = 3000) =>
 
 const apiCall = async (path: string, method: "GET" | "POST" = "GET", body?: any) => {
   const url = `http://${PI_IP}:${PI_PORT}${path}`;
+
   try {
     const res = await fetchTimeout(
       url,
@@ -27,7 +27,7 @@ const apiCall = async (path: string, method: "GET" | "POST" = "GET", body?: any)
         headers: { "Content-Type": "application/json" },
         body: body ? JSON.stringify(body) : undefined,
       },
-      4000
+      4000,
     );
 
     if (!(res as Response).ok) {
@@ -48,6 +48,7 @@ export default function PiManager() {
   useEffect(() => {
     const ping = async () => {
       const r = await apiCall("/health");
+
       if (r.ok) {
         setOnline(true);
         setLastError(null);
@@ -55,6 +56,7 @@ export default function PiManager() {
         setOnline(false);
         setLastError(r.err);
       }
+
       setLoading(false);
     };
 
@@ -72,111 +74,45 @@ export default function PiManager() {
 
   if (loading) {
     return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: "#0f172a",
-        }}
-      >
-        <ActivityIndicator size="large" color="white" />
-        <Text style={{ marginTop: 8, color: "white", fontSize: 16 }}>Verbinde...</Text>
+      <View style={{ flex: 1, backgroundColor: "#0f172a", justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#ffffff" />
+        <Text style={{ color: "white", marginTop: 8 }}>Verbinde...</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: "#0f172a" }}>
-      <View style={{ padding: 24 }}>
-        <View
-          style={{
-            backgroundColor: "#1e293b",
-            borderRadius: 12,
-            padding: 24,
-          }}
-        >
-          <Text style={{ color: "white", fontSize: 24, fontWeight: "bold", marginBottom: 16 }}>
-            Mein Schrank (Pi)
-          </Text>
+    <View style={{ flexGrow: 1, backgroundColor: "#0f172a", padding: 16 }}>
+      <View style={{ backgroundColor: "#0f172a", borderRadius: 12, padding: 16 }}>
+        <Text style={{ color: "white", fontSize: 28, fontWeight: "bold", marginBottom: 16, textAlign: "center" }}>
+           Mein Schrank 1
+        </Text>
 
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 24,
-            }}
-          >
-            <View
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: 5,
-                backgroundColor: online ? "#22c55e" : "#ef4444",
-                marginRight: 8,
-              }}
-            />
-            <Text style={{ color: online ? "#86efac" : "#fca5a5", fontSize: 16 }}>
-              {online ? "Online" : lastError ? `Fehler: ${lastError}` : "Offline"}
-            </Text>
-          </View>
+        <Text style={{ color: "white", fontSize: 16, marginBottom: 20 }}>
+          {online ? "Online" : lastError ? `Fehler: ${lastError}` : "Offline"}
+        </Text>
 
-          {[1, 2].map((l) => (
-            <View key={l} style={{ marginBottom: 20 }}>
-              <Text style={{ color: "white", fontWeight: "500", marginBottom: 8, fontSize: 16 }}>
-                Schloss {l}
-              </Text>
-              <View style={{ flexDirection: "row" }}>
-                <TouchableOpacity
-                  onPress={() => lockAction(l as 1 | 2, "open")}
-                  style={{
-                    flex: 1,
-                    backgroundColor: "#22c55e",
-                    paddingHorizontal: 12,
-                    paddingVertical: 12,
-                    borderRadius: 8,
-                    marginRight: 8,
-                  }}
-                >
-                  <Text style={{ color: "white", textAlign: "center", fontWeight: "600" }}>Auf</Text>
-                </TouchableOpacity>
+        {[1, 2].map((lockNumber) => (
+          <View key={lockNumber} style={{ marginBottom: 16 }}>
+            <Text style={{ color: "white", fontWeight: "600", marginBottom: 8 }}>Schloss {lockNumber}</Text>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => lockAction(lockNumber as 1 | 2, "open")}
+                style={{ flex: 1, backgroundColor: "#22c55e", paddingVertical: 12, borderRadius: 10 }}
+              >
+                <Text style={{ color: "white", textAlign: "center", fontWeight: "bold" }}>Auf</Text>
+              </TouchableOpacity>
 
-                <TouchableOpacity
-                  onPress={() => lockAction(l as 1 | 2, "close")}
-                  style={{
-                    flex: 1,
-                    backgroundColor: "#ef4444",
-                    paddingHorizontal: 12,
-                    paddingVertical: 12,
-                    borderRadius: 8,
-                  }}
-                >
-                  <Text style={{ color: "white", textAlign: "center", fontWeight: "600" }}>Zu</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                onPress={() => lockAction(lockNumber as 1 | 2, "close")}
+                style={{ flex: 1, backgroundColor: "#ef4444", paddingVertical: 12, borderRadius: 10 }}
+              >
+                <Text style={{ color: "white", textAlign: "center", fontWeight: "bold" }}>Zu</Text>
+              </TouchableOpacity>
             </View>
-          ))}
-
-          <TouchableOpacity
-            onPress={async () => {
-              const r = await apiCall("/rainbow", "POST");
-              if (!r.ok) {
-                Alert.alert("Fehler", `Konnte Rainbow nicht starten: ${r.err}`);
-              }
-            }}
-            style={{
-              padding: 16,
-              borderRadius: 8,
-              backgroundColor: "#475569",
-              marginTop: 8,
-            }}
-          >
-            <Text style={{ color: "white", textAlign: "center", fontWeight: "bold", fontSize: 16 }}>
-              LOCATE
-            </Text>
-          </TouchableOpacity>
-        </View>
+          </View>
+        ))}
       </View>
-    </ScrollView>
+    </View>
   );
 }
