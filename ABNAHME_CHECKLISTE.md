@@ -11,16 +11,16 @@ Legende: **[Muss]** = vor Inbetriebnahme, **[Soll]** = vor Weitergabe an andere 
 - [ ] **[Muss]** Im Ordner `Frontend`: `npm install` läuft ohne Fehler durch
 - [ ] **[Muss]** `npx expo install --fix` meldet nichts mehr
 - [ ] **[Muss]** `npx expo-doctor` meldet keine Fehler
-- [ ] **[Muss]** `npx expo install expo-clipboard` ist ausgeführt (sonst bricht der Admin-Tab „Locker" ab)
+- [x] **[Muss]** `expo-clipboard` steht in `package.json` (sonst bricht der Admin-Tab „Locker" ab)
 - [ ] **[Muss]** `npx expo start --clear` startet ohne rote Fehler
-- [ ] **[Soll]** Überflüssige Pakete geprüft: `expo-vector-icons` (alt) entfernen, `@react-navigation/*` nur behalten, wenn `expo-doctor` es verlangt
-- [ ] **[Soll]** `npx tsc --noEmit` meldet keine Typfehler
-- [ ] **[Soll]** `npm run lint` ohne Fehler
+- [x] **[Soll]** Überflüssige Pakete geprüft und aus `package.json` entfernt (nur Pakete, die nirgends importiert werden und von keinem anderen Paket gebraucht werden): `expo-vector-icons` (alt; genutzt wird `@expo/vector-icons`, das bleibt), `@react-navigation/*` (bringt `expo-router` selbst mit), `framer-motion`, `lucide-react-native`, `react-native-svg`, `uuid`, `react-native-get-random-values`, `simple-swizzle`, `clsx`, `tailwind-merge`, `expo-notifications`, `react-native-modal-datetime-picker`, `@react-native-community/datetimepicker`. Danach einmal `npm install` unter Windows, damit `package-lock.json` und `node_modules` nachziehen
+- [x] **[Soll]** `npx tsc --noEmit` meldet keine Typfehler
+- [ ] **[Soll]** `npm run lint` ohne Fehler (alle echten Fehler behoben; bitte einmal unter Windows bestätigen, in der Linux-Testumgebung fehlte nur eine native Datei für die Import-Prüfung)
 
 ## B. Supabase
 
 - [ ] **[Muss]** Authentication → Sign In / Providers: „Allow new users to sign up" AN, „Email" AN, „Confirm email" AUS
-- [ ] **[Muss]** `Supabase/setup.sql` komplett einmal ausgeführt, ohne Fehlermeldung
+- [ ] **[Muss]** `Supabase/setup.sql` komplett ausgeführt, ohne Fehlermeldung (die einzige SQL-Datei; ersetzt `create_tables.sql` und `security_setup.sql`, darf mehrfach laufen)
 - [ ] **[Muss]** Am Ende der Ausführung erscheint eine Tabelle mit mindestens einem offenen Einladungscode
 - [ ] **[Muss]** Auf `auth.users` hängt nur der Trigger `kln_on_auth_user_created`:
   ```sql
@@ -29,8 +29,8 @@ Legende: **[Muss]** = vor Inbetriebnahme, **[Soll]** = vor Weitergabe an andere 
   ```
 - [ ] **[Muss]** Mindestens ein Admin existiert: `select * from public.kln_admins;` liefert eine Zeile
 - [ ] **[Soll]** Für das Admin-Konto ist MFA aktiviert (Authentication → Multi-Factor)
-- [ ] **[Soll]** Alte Klartext-Passwörter entfernt: `update public.codes set code2 = null where code2 is not null;`
-- [ ] **[Soll]** In `Frontend/.env.local` steht nur die URL und der **anon**-Key, kein `service_role`-Key
+- [ ] **[Soll]** Alte Klartext-Passwörter entfernt (macht `setup.sql` jetzt automatisch). Prüfen: `select count(*) from public.codes where code2 is not null;` ergibt 0 (Fehler „column does not exist" ist auch in Ordnung)
+- [x] **[Soll]** In `Frontend/.env.local` steht nur die URL und der **anon**-Key, kein `service_role`-Key
 - [ ] **[Kann]** Alte Tabelle `raspberry_pis` gelöscht, wenn nichts mehr darauf zugreift
 
 ## C. Raspberry Pi / Backend
@@ -49,7 +49,7 @@ Gilt pro Pi. Für die Simulation am PC siehe Abschnitt G.
 - [ ] **[Muss]** Pins stimmen mit der Verdrahtung überein (BCM, siehe Kommentar in `main.py`): Schloss 1 = 17/15, 2 = 27/23, 3 = 12/16 (phys. 32/36), 4 = 20/21 (phys. 38/40)
 - [ ] **[Muss]** Motor läuft beim Öffnen in die richtige Richtung (sonst `in1`/`in2` tauschen)
 - [ ] **[Muss]** LED-Animation und Statusfarbe (grün offen, rot zu) funktionieren
-- [ ] **[Soll]** Server startet nach einem Neustart automatisch (systemd-Dienst oder Autostart)
+- [ ] **[Soll]** Server startet nach einem Neustart automatisch: `Backend/deploy/` nach `/home/pi/projects/deploy/` kopieren, dann `bash deploy/install-service.sh`. Prüfen mit `sudo reboot`, danach `systemctl status keylessnetwork`
 - [ ] **[Soll]** `locker.json` ist gesichert (ohne sie ist die Locker-ID weg)
 - [ ] **[Kann]** TLS aktiviert (`KLN_TLS_CERT`, `KLN_TLS_KEY`) und in der App „HTTPS" gesetzt
 
@@ -67,7 +67,7 @@ Gilt pro Pi. Für die Simulation am PC siehe Abschnitt G.
 - [ ] **[Muss]** App schließen und neu öffnen: man bleibt eingeloggt
 - [ ] **[Muss]** Ausloggen im Tab „Mein Account": man landet wieder auf der Startseite, „Steuerung" zeigt nichts mehr
 - [ ] **[Muss]** Tab „Mein Account" zeigt Benutzername und Rolle, **kein** Passwort
-- [ ] **[Soll]** Der Button „Test Login" auf der Startseite ist entfernt (er öffnet die App ohne Anmeldung)
+- [x] **[Soll]** Der Button „Test Login" auf der Startseite ist entfernt (er öffnet die App ohne Anmeldung)
 
 ## E. Admin-Tab
 
@@ -135,8 +135,8 @@ Mit einem zweiten Konto ohne Admin-Rolle testen.
   ```
 - [ ] **[Muss]** Ein normaler Nutzer kann keine Locker, Codes oder Freigaben anlegen oder ändern (Test in der App oder per REST)
 - [ ] **[Muss]** Ein nicht freigegebener Nutzer bekommt vom Pi keinen Zugriff, auch wenn er die IP kennt
-- [ ] **[Muss]** `locker.json`, `keys.json` und `.env.local` sind nicht in Git (`git status` zeigt sie nicht an)
-- [ ] **[Muss]** Der `service_role`-Key steht nirgends im Projekt, im Chat oder auf dem Pi
+- [x] **[Muss]** `locker.json`, `keys.json` und `.env.local` sind nicht in Git (`git status` zeigt sie nicht an)
+- [ ] **[Muss]** Der `service_role`-Key steht nirgends im Projekt, im Chat oder auf dem Pi (Projekt geprüft: alle Keys sind anon-Keys; Pi beim gemeinsamen Test prüfen)
 - [ ] **[Soll]** Setup-Codes wurden nirgends gespeichert (kein Chat, keine Notiz)
 - [ ] **[Soll]** Schlüsselhaltung geklärt: Wer Zugriff auf `locker.json` auf dem Pi oder auf das Supabase-Admin-Konto hat, hat Zugriff auf alle Locker
 - [ ] **[Kann]** Einladungscodes sind zufällig (Knopf „Zufälligen Code erzeugen") statt erratbar wie `ADMIN001`
@@ -147,13 +147,13 @@ Mit einem zweiten Konto ohne Admin-Rolle testen.
 - [ ] **[Soll]** Android: unverschlüsseltes HTTP ist in Release-Builds blockiert. Entweder Pi mit TLS betreiben oder `expo-build-properties` mit `usesCleartextTraffic: true` einbauen
 - [ ] **[Soll]** Selbstsignierte Zertifikate lehnt das Handy ab: bei TLS ein Zertifikat nutzen, dem das Handy vertraut
 - [ ] **[Soll]** Testbuild auf echtem iOS- und Android-Gerät geprüft, nicht nur in Expo Go
-- [ ] **[Kann]** App-Name, Icon, Bundle-ID und `scheme` (steht noch auf `expo-starter`) angepasst
+- [ ] **[Kann]** App-Name, Icon, Bundle-ID und `scheme` angepasst. Erledigt: Name `KeyLessNetwork`, Scheme `keylessnetwork`, iOS/Android `com.frozenpixel.keylessnetwork`. Offen: eigenes Icon
 
 ## J. Doku und Aufräumen
 
 - [ ] **[Soll]** Es gibt eine README, die das neue System beschreibt (Anmeldung über Supabase Auth, Tabellen `kln_*`, `Backend/main.py`). Die frühere `docs/README.md` ist nicht mehr im Projekt und beschrieb noch den alten Login
 - [ ] **[Soll]** `Backend/FRONTEND_CHANGES.md` stimmt mit dem Verhalten überein
-- [ ] **[Kann]** Ungenutzte Dateien entfernt: `src/components/PiForm.tsx`, `src/store/userStore.ts`, Ordner `.expo-test-export`
+- [x] **[Kann]** Ungenutzte Dateien entfernt: `src/components/PiForm.tsx`, `src/store/userStore.ts`, `src/components/rollenauswahl.tsx`, `src/components/zeitauswahl.tsx`, Ordner `.expo-test-export`
 - [ ] **[Kann]** Lizenz und Credits laut `features.md` im Store-Eintrag vermerkt
 
 ---
@@ -184,7 +184,7 @@ Ein Kollege hatte eine ÄLTERE Version des Projekts (Stand: Klartext-Login über
 | Server ohne Authentifizierung, jeder öffnet per `curl` | `server.py` | ✅ behoben — HMAC-Signatur + Supabase-Login-Token, siehe Abschnitt oben |
 | Passwort im Klartext in `code2` | `create_tables.sql` | ✅ behoben — echte Supabase Auth (gehashte Passwörter, Supabase übernimmt das) |
 | RLS-Policies mit `USING (true)` — jeder anonyme Client darf alles lesen/ändern | `create_tables.sql` | ✅ behoben — Policies binden an `auth.uid()` / `kln_is_admin()` / `kln_can_access()` |
-| Anon-Key + Daten im mitcommitteten Web-Build geleakt | `Frontend/.expo-test-export/` | ✅ jetzt behoben — Ordner aus Git-Tracking entfernt (`git rm -r --cached`) und in `.gitignore` aufgenommen. **Wichtig:** falls das Repo schon auf GitHub gepusht wurde, steht der alte Build in der Historie weiter drin. Für ein öffentliches Repo: `git log --all --oneline -- Frontend/.expo-test-export` prüfen und bei Bedarf mit `git filter-repo` aus der Historie entfernen, oder Repo neu aufsetzen |
+| Anon-Key + Daten im mitcommitteten Web-Build geleakt | `Frontend/.expo-test-export/` | ✅ behoben — Ordner gelöscht und in `.gitignore`. Die eine betroffene Datei (`entry-598a….js`, enthielt den Anon-Key) wurde lokal aus der gesamten Git-Historie gefiltert (`git filter-branch`, nur diese Datei). **Noch offen:** `git push --force origin main` (und ggf. `development`), da GitHub sonst die alte Historie behält |
 | Kein `GPIO.cleanup()` / Shutdown-Handler, Pins bleiben bei Prozessende undefiniert | `server.py` | ✅ jetzt behoben — `atexit`/`SIGTERM`/`SIGINT`-Handler in `Backend/main.py` fahren die Motoren runter und rufen `GPIO.cleanup()` |
 | Keine `requirements.txt`, keine Start-Doku | `server.py` | ✅ jetzt behoben — `Backend/requirements.txt` ergänzt |
 | Motor-Zustand nur im RAM, nach Neustart „zu" unabhängig vom echten Zustand | `server.py` | ⚠️ weiterhin so (siehe „Bekannte Einschränkungen" unten) — bewusst nicht behoben, da ohne Endschalter am Motor nicht zuverlässig lösbar; nach jedem Neustart den physischen Zustand einmal prüfen |
