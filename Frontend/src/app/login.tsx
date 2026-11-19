@@ -41,7 +41,7 @@ export default function LoginForm() {
         .select("username, code2, Role")
         .eq("username", data.username.trim())
         .eq("code2", data.password)
-        .single();
+        .single();   //klartext !Ändern
 
       if (loginError || !userData) {
         setIsLocked(false);
