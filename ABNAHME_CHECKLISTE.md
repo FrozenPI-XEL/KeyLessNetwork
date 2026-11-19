@@ -8,14 +8,14 @@ Legende: **[Muss]** = vor Inbetriebnahme, **[Soll]** = vor Weitergabe an andere 
 
 ## A. Projekt und Pakete
 
-- [ ] **[Muss]** Im Ordner `Frontend`: `npm install` läuft ohne Fehler durch
+- [x] **[Muss]** Im Ordner `Frontend`: `npm install` läuft ohne Fehler durch
 - [ ] **[Muss]** `npx expo install --fix` meldet nichts mehr
 - [ ] **[Muss]** `npx expo-doctor` meldet keine Fehler
 - [x] **[Muss]** `expo-clipboard` steht in `package.json` (sonst bricht der Admin-Tab „Locker" ab)
 - [ ] **[Muss]** `npx expo start --clear` startet ohne rote Fehler
 - [x] **[Soll]** Überflüssige Pakete geprüft und aus `package.json` entfernt (nur Pakete, die nirgends importiert werden und von keinem anderen Paket gebraucht werden): `expo-vector-icons` (alt; genutzt wird `@expo/vector-icons`, das bleibt), `@react-navigation/*` (bringt `expo-router` selbst mit), `framer-motion`, `lucide-react-native`, `react-native-svg`, `uuid`, `react-native-get-random-values`, `simple-swizzle`, `clsx`, `tailwind-merge`, `expo-notifications`, `react-native-modal-datetime-picker`, `@react-native-community/datetimepicker`. Danach einmal `npm install` unter Windows, damit `package-lock.json` und `node_modules` nachziehen
 - [x] **[Soll]** `npx tsc --noEmit` meldet keine Typfehler
-- [ ] **[Soll]** `npm run lint` ohne Fehler (alle echten Fehler behoben; bitte einmal unter Windows bestätigen, in der Linux-Testumgebung fehlte nur eine native Datei für die Import-Prüfung)
+- [x] **[Soll]** `npm run lint` ohne Fehler (alle echten Fehler behoben; bitte einmal unter Windows bestätigen, in der Linux-Testumgebung fehlte nur eine native Datei für die Import-Prüfung)
 
 ## B. Supabase
 
