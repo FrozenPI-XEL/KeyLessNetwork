@@ -138,7 +138,7 @@ GPIO.setmode(GPIO.BCM)
 # GPIO Pins für die Motoren (BCM-Nummern).
 # Schloss 3 = physische Pins 32 und 36 -> BCM 12 und 16
 # Schloss 4 = physische Pins 38 und 40 -> BCM 20 und 21
-motors = {
+ALL_MOTORS = {
     1: {"in1": 17, "in2": 15, "state": "closed"},
     2: {"in1": 27, "in2": 23, "state": "closed"},
     3: {"in1": 12, "in2": 16, "state": "closed"},

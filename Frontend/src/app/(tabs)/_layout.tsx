@@ -1,9 +1,4 @@
-<<<<<<< HEAD
 import { Tabs } from "expo-router";
-=======
-import { Tabs, Stack } from "expo-router";
-import React from "react";
->>>>>>> 447e459aea7227994332b9f6f539f6c32ae610b7
 import { useAuthStore } from "../../store/authStore";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 
@@ -17,10 +12,6 @@ export default function TabsLayout() {
 
   return (
     <Tabs
-<<<<<<< HEAD
-=======
-      initialRouteName="home"
->>>>>>> 447e459aea7227994332b9f6f539f6c32ae610b7
       screenOptions={{
         tabBarStyle: {
           backgroundColor: "#0f172b",
@@ -34,11 +25,7 @@ export default function TabsLayout() {
         headerTitleAlign: "center",
       }}
     >
-<<<<<<< HEAD
       <Tabs.Protected guard={isadmin}>
-=======
-      <Stack.Protected guard={isadmin}>
->>>>>>> 447e459aea7227994332b9f6f539f6c32ae610b7
         <Tabs.Screen
           name="admin"
           options={{

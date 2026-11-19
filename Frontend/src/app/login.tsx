@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { View, Text, TextInput, Pressable, Animated } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../store/authStore";
-import { supabase } from "../hooks/supabase-client";
 
 type FormData = {
   username: string;
@@ -36,34 +35,35 @@ export default function LoginForm() {
     setIsLoading(true);
 
     try {
-      const { data: userData, error: loginError } = await supabase
-        .from("codes")
-        .select("username, code2, Role")
-        .eq("username", data.username.trim())
-        .eq("code2", data.password)
-        .single();   //klartext !Ändern
-
-      if (loginError || !userData) {
-        setIsLocked(false);
-        setError("Benutzername oder Passwort falsch!");
-        setIsLoading(false);
-        return;
-      }
-
+      await logIn(data.username.trim(), data.password);
       setIsLocked(true);
-      logIn(userData.username, userData.Role === true);
       router.replace("/(tabs)/home");
-    } catch (err) {
-      console.error(err);
-      setError("Ein Fehler ist aufgetreten. Bitte versuche es erneut.");
+    } catch {
+      setIsLocked(false);
+      setError("Benutzername oder Passwort falsch!");
     }
 
     setIsLoading(false);
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#0f172a", alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}>
-      <Text style={{ fontSize: 30, fontWeight: "bold", color: "white", marginBottom: 32 }}>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "#0f172a",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 24,
+      }}
+    >
+      <Text
+        style={{
+          fontSize: 30,
+          fontWeight: "bold",
+          color: "white",
+          marginBottom: 32,
+        }}
+      >
         Login
       </Text>
 
@@ -83,9 +83,7 @@ export default function LoginForm() {
       />
 
       {errors.username && (
-        <Text style={{ color: "#f87171" }}>
-          {errors.username.message}
-        </Text>
+        <Text style={{ color: "#f87171" }}>{errors.username.message}</Text>
       )}
 
       <Controller
@@ -93,7 +91,13 @@ export default function LoginForm() {
         name="password"
         rules={{ required: "Passwort ist erforderlich" }}
         render={({ field: { onChange, value } }) => (
-          <View style={{ flexDirection: "row", alignItems: "center", width: "100%" }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              width: "100%",
+            }}
+          >
             <View style={{ flex: 1 }}>
               <FloatingInput
                 label="Passwort"
@@ -119,29 +123,34 @@ export default function LoginForm() {
       />
 
       {errors.password && (
-        <Text style={{ color: "#f87171" }}>
-          {errors.password.message}
-        </Text>
+        <Text style={{ color: "#f87171" }}>{errors.password.message}</Text>
       )}
 
-      {error && (
-        <Text style={{ color: "#f87171" }}>
-          {error}
-        </Text>
-      )}
+      {error && <Text style={{ color: "#f87171" }}>{error}</Text>}
 
       <Pressable
-        style={{ flexDirection: "row", alignItems: "center", backgroundColor: isLoading ? "#6b7280" : "#6366f1", paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginTop: 12 }}
-        onPress={handleSubmit(onSubmit)}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: isLoading ? "#6b7280" : "#6366f1",
+          paddingHorizontal: 24,
+          paddingVertical: 12,
+          borderRadius: 12,
+          marginTop: 12,
+        }}
+        onPress={() => handleSubmit(onSubmit)()}
         disabled={isLoading}
       >
-        <Ionicons
-          name="checkmark-circle-outline"
-          size={22}
-          color="white"
-        />
+        <Ionicons name="checkmark-circle-outline" size={22} color="white" />
 
-        <Text style={{ color: "white", fontWeight: "600", fontSize: 16, marginLeft: 8 }}>
+        <Text
+          style={{
+            color: "white",
+            fontWeight: "600",
+            fontSize: 16,
+            marginLeft: 8,
+          }}
+        >
           {isLoading ? "Anmelden..." : "Login"}
         </Text>
       </Pressable>
@@ -151,7 +160,8 @@ export default function LoginForm() {
         style={{ marginTop: 24, paddingHorizontal: 24, paddingVertical: 12 }}
       >
         <Text style={{ color: "#818cf8", textAlign: "center" }}>
-          Noch kein Account? <Text style={{ fontWeight: "bold" }}>Registrieren</Text>
+          Noch kein Account?{" "}
+          <Text style={{ fontWeight: "bold" }}>Registrieren</Text>
         </Text>
       </Pressable>
 
@@ -203,18 +213,22 @@ const FloatingInput = ({
   };
 
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", borderBottomWidth: 2, borderBottomColor: "#475569", marginBottom: 24, width: "100%", position: "relative", paddingBottom: 4 }}>
-      <Ionicons
-        name={icon}
-        size={20}
-        color="#666"
-        style={{ marginRight: 8 }}
-      />
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        borderBottomWidth: 2,
+        borderBottomColor: "#475569",
+        marginBottom: 24,
+        width: "100%",
+        position: "relative",
+        paddingBottom: 4,
+      }}
+    >
+      <Ionicons name={icon} size={20} color="#666" style={{ marginRight: 8 }} />
 
       <View style={{ flex: 1 }}>
-        <Animated.Text style={labelStyle}>
-          {label}
-        </Animated.Text>
+        <Animated.Text style={labelStyle}>{label}</Animated.Text>
 
         <TextInput
           style={{ height: 40, fontSize: 20, color: "white" }}

@@ -1,119 +1,56 @@
-# Änderungen fürs Frontend
+# Backend-Änderungen und Frontend-Anpassungen
 
-Das Backend (`backend/main.py`) wurde umgebaut. Das Frontend muss folgendes anpassen, sonst werden alle Anfragen mit `401` abgelehnt.
+Neues Sicherheitsmodell: Nutzer loggen sich mit echter Supabase-Anmeldung ein und bekommen ihre Locker samt Schlüssel automatisch.
+Eingegeben wird nur vom Admin, und nur einmal pro Locker.
 
-## 1. Neue Schlösser
+## Wo liegt was
 
-Es gibt jetzt vier Schlösser: `lock_id` = `1`, `2`, `3`, `4`.
+| Bereich | Dateien |
+|---|---|
+| Nutzer (Tab „Steuerung“) | `Frontend/src/app/(tabs)/controll.tsx`, `Frontend/src/lib/kln-api.ts` |
+| Admin (Tab „Admin“) | `Frontend/src/app/(tabs)/admin.tsx`, `Frontend/src/components/admin/` (`UsersTab`, `CodesTab`, `LockersTab`, `ui`) |
+| Anmeldung | `login.tsx`, `register.tsx`, `profile-setup.tsx`, `store/authStore.ts`, `hooks/supabase-client.ts`, `app/_layout.tsx` |
+| Datenbank | `Supabase/setup.sql` |
+| Pi | `Backend/main.py` |
 
-| Schloss | Physische Pins | BCM |
-|---|---|---|
-| 3 | 32 und 36 | 12 und 16 |
-| 4 | 38 und 40 | 20 und 21 |
+## Ablauf
 
-Die Endpunkte bleiben gleich:
+1. **Pi einrichten (einmalig, Admin im Terminal):** `python main.py init --supabase-url https://XXXX.supabase.co --anon-key <anon key>`. Das zeigt einen Setup-Code (`KLN1-…`, 96 Hex-Zeichen).
+2. **Locker anlegen (Admin-Tab, „Locker“):** Name, IP, Port und Setup-Code eingeben. Der Schlüssel landet in Supabase.
+3. **Nutzer freigeben (Admin-Tab, „Locker“):** Beim Locker auf das Personen-Symbol tippen und Nutzer freigeben.
+4. **Nutzer registrieren sich selbst:** Admin erzeugt im Tab „Codes“ einen Einladungscode, der Nutzer registriert sich damit.
+5. **Alle anderen Nutzer:** einloggen, Locker antippen, fertig. Die Schlüssel bleiben nur im Arbeitsspeicher und verschwinden beim Ausloggen.
 
-- `GET  /health`
-- `POST /lock/{id}/open`
-- `POST /lock/{id}/close`
-- `GET  /lock/{id}/status`
+## Anmeldung
 
-## 2. Verbindung nur noch über HTTPS
+Supabase Auth braucht eine E-Mail. Die App erzeugt sie intern aus dem Benutzernamen (`usernameToEmail` in `authStore.ts`). Sie wird nie angezeigt und es wird nie eine Mail verschickt. In Supabase muss dafür „Confirm email“ aus sein.
+Die Registrierung prüft die Datenbank selbst (Trigger `kln_handle_new_user`): Ohne gültigen, unbenutzten Einladungscode entsteht kein Konto.
 
-- Der Pi läuft auf **Port 8443** mit TLS.
-- Empfohlen: **Zertifikat-Pinning** in der App (das Zertifikat bzw. dessen Public-Key-Hash fest in der App hinterlegen).
-
-## 3. Jede Anfrage muss signiert sein
-
-Pro Gerät gibt es einen geheimen 256-Bit-Schlüssel (64 Hex-Zeichen). Er wird auf dem Pi erzeugt mit:
-
-```
-python main.py genkey <geraete-id>
-```
-
-Den Schlüssel einmalig sicher in die App übertragen und dort im sicheren Speicher ablegen (iOS Keychain / Android Keystore), **nie** im Code oder in Logs.
-
-### Header bei jeder Anfrage
+## Header bei jeder Anfrage an den Pi
 
 | Header | Inhalt |
 |---|---|
-| `X-Device-Id` | Geräte-ID, wie bei `genkey` angegeben |
-| `X-Timestamp` | Aktuelle Unix-Zeit in Sekunden |
-| `X-Nonce` | Zufälliger Hex-String, 32 Zeichen, **bei jeder Anfrage neu** |
-| `X-Signature` | HMAC-SHA256 als Hex (siehe unten) |
+| `X-Locker-Id` | Locker-ID (UUID) |
+| `X-Timestamp` | Unix-Zeit in Sekunden |
+| `X-Nonce` | Zufälliger Hex-String, 32 Zeichen, bei jeder Anfrage neu |
+| `X-Signature` | HMAC-SHA256 (Hex) mit dem Lockerschlüssel |
+| `Authorization` | `Bearer <Supabase access_token>` |
 
-### Signatur berechnen
+Kanonischer String für die Signatur (Zeilen mit `\n`): `KLN1`, Methode, Pfad, Query, Timestamp, Nonce, SHA256(Body) als Hex.
+Antwort des Pi: `X-Response-Signature` = HMAC über `KLN1-RESP`, Nonce der Anfrage, `X-Response-Timestamp`, HTTP-Status, SHA256 des rohen Bodys.
 
-Kanonischer String, Zeilen mit `\n` getrennt (kein `\n` am Ende):
-
-```
-KLN1
-<METHODE in Großbuchstaben>
-<Pfad, z. B. /lock/3/open>
-<Query ohne ?, leer wenn keine>
-<X-Timestamp>
-<X-Nonce>
-<SHA256 des Bodys als Hex; bei leerem Body der SHA256 von "">
-```
-
-`X-Signature = HMAC_SHA256(schluessel_als_bytes, kanonischer_string)` als Hex, kleingeschrieben.
-
-Wichtig: Der Schlüssel ist ein Hex-String und muss vor dem HMAC in **Bytes** umgewandelt werden.
-
-Beispiel (JavaScript, `hmacSha256Hex`/`sha256Hex` stehen für die Crypto-Bibliothek der App):
-
-```js
-async function signedFetch(baseUrl, deviceId, keyHex, method, path, body = "") {
-  const ts = Math.floor(Date.now() / 1000).toString();
-  const nonce = randomHex(16); // 16 Bytes -> 32 Hex-Zeichen, kryptografisch sicherer Zufall
-  const canonical = ["KLN1", method, path, "", ts, nonce, sha256Hex(body)].join("\n");
-  const signature = hmacSha256Hex(hexToBytes(keyHex), canonical);
-
-  const res = await fetch(baseUrl + path, {
-    method,
-    body: body || undefined,
-    headers: {
-      "X-Device-Id": deviceId,
-      "X-Timestamp": ts,
-      "X-Nonce": nonce,
-      "X-Signature": signature,
-    },
-  });
-  return { res, nonce };
-}
-```
-
-## 4. Antworten des Pi prüfen
-
-Jede Antwort enthält zwei Header:
-
-- `X-Response-Timestamp`
-- `X-Response-Signature`
-
-Prüfung in der App (Antwort verwerfen, wenn sie nicht stimmt):
-
-```
-KLN1-RESP
-<Nonce der eigenen Anfrage>
-<X-Response-Timestamp>
-<HTTP-Statuscode>
-<SHA256 des rohen Antwort-Bodys als Hex>
-```
-
-Erwartet: `HMAC_SHA256(schluessel_als_bytes, string)` als Hex, verglichen mit `X-Response-Signature`. Den Body dafür **als rohen Text** hashen, nicht neu serialisieren. Zusätzlich prüfen, dass `X-Response-Timestamp` nicht mehr als ca. 30 Sekunden von der Handyzeit abweicht.
-
-Die Antwort-Bodys selbst (`success`, `lock`, `state`, `error`) bleiben unverändert.
-
-## 5. Neue Fehlercodes
+## Fehlercodes
 
 | Code | Bedeutung |
 |---|---|
-| `401` | Signatur, Zeitstempel, Nonce oder Geräte-ID falsch (absichtlich keine Details) |
-| `429` | Zu viele Fehlversuche, IP für 5 Minuten gesperrt |
+| `401` | Signatur, Zeit, Locker-ID oder Freigabe falsch (absichtlich ohne Details) |
+| `429` | Zu viele Fehlversuche, IP 5 Minuten gesperrt |
+| `503` | Pi nicht eingerichtet oder Supabase vom Pi aus nicht erreichbar |
 
-## 6. Wichtige Regeln
+## Regeln
 
-- Die Uhrzeit von Handy und Pi darf höchstens **30 Sekunden** abweichen. Am Pi NTP aktiv lassen, in der App notfalls bei `401` eine Hinweismeldung zur Uhrzeit anzeigen.
-- Nonce nie wiederverwenden, auch nicht bei einem Wiederholungsversuch. Jeder Retry bekommt eine neue Nonce und einen neuen Timestamp.
-- Auch `/health` und `/status` müssen signiert werden.
-- `keys.json` auf dem Pi gehört in die `.gitignore` und darf nie ins Repo.
+- Uhrzeit von Handy und Pi darf höchstens 30 Sekunden abweichen.
+- Eine entzogene Freigabe wirkt am Pi nach spätestens 60 Sekunden.
+- Schlüssel erneuern: `python main.py rotate` auf dem Pi, neuen Setup-Code im Admin-Tab beim selben Locker erneut eingeben.
+- `locker.json` auf dem Pi niemals ins Repo (in die `.gitignore`).
+- Der „Test Login“-Button auf der Startseite ist nur noch Optik: Ohne echte Sitzung zeigt „Steuerung“ nichts an. Vor einer Veröffentlichung entfernen.
