@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { useAuthStore } from "../../store/authStore";
 import UsersTab from "../../components/admin/UsersTab";
@@ -23,8 +23,17 @@ export default function AdminPanel() {
 
   if (!isadmin) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#1e293b" }}>
-        <Text style={{ color: "white", fontSize: 18 }}>❌ Du hast keine Admin-Berechtigung</Text>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#1e293b",
+        }}
+      >
+        <Text style={{ color: "white", fontSize: 18 }}>
+          ❌ Du hast keine Admin-Berechtigung
+        </Text>
       </View>
     );
   }
@@ -38,7 +47,15 @@ export default function AdminPanel() {
       automaticallyAdjustKeyboardInsets
     >
       <View style={{ paddingHorizontal: 16, paddingVertical: 16 }}>
-        <Text style={{ color: "white", fontSize: 28, fontWeight: "bold", marginBottom: 16, textAlign: "center" }}>
+        <Text
+          style={{
+            color: "white",
+            fontSize: 28,
+            fontWeight: "bold",
+            marginBottom: 16,
+            textAlign: "center",
+          }}
+        >
           Admin Panel
         </Text>
 
@@ -54,7 +71,15 @@ export default function AdminPanel() {
                 backgroundColor: activeTab === tab.key ? "#6366f1" : "#475569",
               }}
             >
-              <Text style={{ color: "white", fontWeight: "bold", textAlign: "center" }}>{tab.label}</Text>
+              <Text
+                style={{
+                  color: "white",
+                  fontWeight: "bold",
+                  textAlign: "center",
+                }}
+              >
+                {tab.label}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>

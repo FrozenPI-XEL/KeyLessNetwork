@@ -1,4 +1,3 @@
-import React from "react";
 import { View, Text } from "react-native";
 import { useAuthStore } from "@/store/authStore";
 
@@ -21,13 +20,34 @@ export default function InfoCard() {
         alignItems: "center",
       }}
     >
-      <Text style={{ color: "white", fontSize: 24, fontWeight: "bold", marginBottom: 8 }}>
+      <Text
+        style={{
+          color: "white",
+          fontSize: 24,
+          fontWeight: "bold",
+          marginBottom: 8,
+        }}
+      >
         Deine Daten
       </Text>
-      <Text style={{ color: "#cbd5e1", marginBottom: 4, fontSize: 18, fontWeight: "bold" }}>
+      <Text
+        style={{
+          color: "#cbd5e1",
+          marginBottom: 4,
+          fontSize: 18,
+          fontWeight: "bold",
+        }}
+      >
         Benutzername: {username}
       </Text>
-      <Text style={{ color: "#cbd5e1", marginBottom: 4, fontSize: 18, fontWeight: "bold" }}>
+      <Text
+        style={{
+          color: "#cbd5e1",
+          marginBottom: 4,
+          fontSize: 18,
+          fontWeight: "bold",
+        }}
+      >
         Rolle: {isadmin ? "Admin" : "User"}
       </Text>
     </View>

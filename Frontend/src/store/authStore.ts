@@ -38,7 +38,11 @@ export const useAuthStore = create(
         }
 
         const [profile, admin] = await Promise.all([
-          supabase.from("kln_profiles").select("username").eq("user_id", data.user.id).maybeSingle(),
+          supabase
+            .from("kln_profiles")
+            .select("username")
+            .eq("user_id", data.user.id)
+            .maybeSingle(),
           supabase.rpc("kln_is_admin"),
         ]);
 
@@ -63,7 +67,11 @@ export const useAuthStore = create(
       syncSession: async () => {
         const { data } = await supabase.auth.getSession();
         if (!data.session) {
-          set(() => ({ isLoggedIn: false, isadmin: false, username: undefined }));
+          set(() => ({
+            isLoggedIn: false,
+            isadmin: false,
+            username: undefined,
+          }));
           return;
         }
         const admin = await supabase.rpc("kln_is_admin");
@@ -77,6 +85,6 @@ export const useAuthStore = create(
         getItem,
         removeItem: deleteItemAsync,
       })),
-    }
-  )
+    },
+  ),
 );

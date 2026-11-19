@@ -1,6 +1,5 @@
 import { View, TouchableOpacity, Text } from "react-native";
 import { useAuthStore } from "@/store/authStore";
-import React from "react";
 import { Ionicons } from "@expo/vector-icons";
 import InfoCard from "@/components/InfoCard";
 
@@ -33,8 +32,15 @@ export default function ProfileScreen() {
           alignItems: "center",
         }}
       >
-        <Ionicons name="log-out-outline" size={26}  color="white" />
-        <Text style={{ color: "white", fontWeight: "bold", marginLeft: 12, fontSize: 20 }}>
+        <Ionicons name="log-out-outline" size={26} color="white" />
+        <Text
+          style={{
+            color: "white",
+            fontWeight: "bold",
+            marginLeft: 12,
+            fontSize: 20,
+          }}
+        >
           Ausloggen
         </Text>
       </TouchableOpacity>

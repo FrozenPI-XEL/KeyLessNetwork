@@ -45,13 +45,12 @@ export const getSupabase = () => {
   return supabaseClient;
 };
 
-
 export const supabase = new Proxy({} as any, {
-  get: (target, prop) => {
+  get: (_target, prop) => {
     const client = getSupabase();
     if (!client) {
       throw new Error(
-        "Supabase not initialized. Make sure EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY are set in your .env file"
+        "Supabase not initialized. Make sure EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY are set in your .env file",
       );
     }
     return client[prop as any];

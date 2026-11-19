@@ -1,4 +1,3 @@
-import React from "react";
 import { View, Text, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
@@ -17,7 +16,12 @@ export default function Index() {
     >
       <StatusBar style="light" />
 
-      <Ionicons name="rocket" size={120} color="white" style={{ marginTop: 10 , marginBottom: 30 }} />
+      <Ionicons
+        name="rocket"
+        size={120}
+        color="white"
+        style={{ marginTop: 10, marginBottom: 30 }}
+      />
 
       <Text
         style={{

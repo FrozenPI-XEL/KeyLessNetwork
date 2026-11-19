@@ -41,5 +41,10 @@ export const dangerButton: ViewStyle = {
   borderRadius: 6,
 };
 
-export const headingStyle: TextStyle = { color: "white", fontSize: 20, fontWeight: "bold", marginBottom: 12 };
+export const headingStyle: TextStyle = {
+  color: "white",
+  fontSize: 20,
+  fontWeight: "bold",
+  marginBottom: 12,
+};
 export const mutedText: TextStyle = { color: "#cbd5e1", fontSize: 12 };

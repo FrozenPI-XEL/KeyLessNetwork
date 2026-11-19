@@ -1,5 +1,12 @@
-import React, { useState, useEffect, useRef } from "react";
-import { View, Text, TextInput, Pressable, Animated, Alert } from "react-native";
+import { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  Animated,
+  Alert,
+} from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -14,14 +21,28 @@ type ProfileData = {
 export default function ProfileSetupPage() {
   const router = useRouter();
   const { code } = useLocalSearchParams<{ code: string }>();
-  const { control, handleSubmit, formState: { errors } } = useForm<ProfileData>();
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ProfileData>();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!code) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#0f172a", alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}>
-        <Text style={{ color: "#ef5350", fontSize: 16 }}>Fehler: Kein Code gefunden</Text>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#0f172a",
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: 24,
+        }}
+      >
+        <Text style={{ color: "#ef5350", fontSize: 16 }}>
+          Fehler: Kein Code gefunden
+        </Text>
         <Pressable onPress={() => router.back()} style={{ marginTop: 16 }}>
           <Text style={{ color: "#a78bfa" }}>Zurück zur Registrierung</Text>
         </Pressable>
@@ -38,7 +59,9 @@ export default function ProfileSetupPage() {
     }
 
     if (data.username.trim().length > MAX_USERNAME_LENGTH) {
-      setError(`Der Benutzername darf höchstens ${MAX_USERNAME_LENGTH} Zeichen lang sein!`);
+      setError(
+        `Der Benutzername darf höchstens ${MAX_USERNAME_LENGTH} Zeichen lang sein!`,
+      );
       return;
     }
 
@@ -61,11 +84,13 @@ export default function ProfileSetupPage() {
       });
 
       if (signUpError) {
-        const alreadyUsed = /already|registered/i.test(signUpError.message || "");
+        const alreadyUsed = /already|registered/i.test(
+          signUpError.message || "",
+        );
         setError(
           alreadyUsed
             ? "Dieser Benutzername ist schon vergeben!"
-            : "Registrierung fehlgeschlagen. Code ungültig, bereits verwendet oder Benutzername nicht erlaubt."
+            : "Registrierung fehlgeschlagen. Code ungültig, bereits verwendet oder Benutzername nicht erlaubt.",
         );
         console.error(signUpError);
         setIsLoading(false);
@@ -87,9 +112,28 @@ export default function ProfileSetupPage() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#1e293b", alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}>
-      <Text style={{ fontSize: 28, fontWeight: "bold", color: "white", marginBottom: 8 }}>Profil erstellen</Text>
-      <Text style={{ color: "#9ca3af", marginBottom: 32, textAlign: "center" }}>Erstelle deinen Benutzernamen und einen persönlichen Code</Text>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "#1e293b",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 24,
+      }}
+    >
+      <Text
+        style={{
+          fontSize: 28,
+          fontWeight: "bold",
+          color: "white",
+          marginBottom: 8,
+        }}
+      >
+        Profil erstellen
+      </Text>
+      <Text style={{ color: "#9ca3af", marginBottom: 32, textAlign: "center" }}>
+        Erstelle deinen Benutzernamen und einen persönlichen Code
+      </Text>
 
       <View style={{ width: "100%", marginTop: 40 }}>
         <Controller
@@ -106,7 +150,11 @@ export default function ProfileSetupPage() {
           )}
         />
       </View>
-      {errors.username && <Text style={{ color: "#f87171", marginBottom: 16 }}>{errors.username.message}</Text>}
+      {errors.username && (
+        <Text style={{ color: "#f87171", marginBottom: 16 }}>
+          {errors.username.message}
+        </Text>
+      )}
 
       <View style={{ width: "100%" }}>
         <Controller
@@ -115,7 +163,10 @@ export default function ProfileSetupPage() {
           rules={{
             required: "Code ist erforderlich",
             minLength: { value: 8, message: "Code muss 8 Zeichen lang sein" },
-            maxLength: { value: 8, message: "Code darf maximal 8 Zeichen lang sein" },
+            maxLength: {
+              value: 8,
+              message: "Code darf maximal 8 Zeichen lang sein",
+            },
           }}
           render={({ field: { onChange, value } }) => (
             <FloatingInput
@@ -128,10 +179,25 @@ export default function ProfileSetupPage() {
           )}
         />
       </View>
-      {errors.code2 && <Text style={{ color: "#f87171", marginBottom: 16 }}>{errors.code2.message}</Text>}
+      {errors.code2 && (
+        <Text style={{ color: "#f87171", marginBottom: 16 }}>
+          {errors.code2.message}
+        </Text>
+      )}
 
       {error && (
-        <Text style={{ color: "#ef5350", backgroundColor: "rgba(244, 63, 94, 0.1)", paddingHorizontal: 12, paddingVertical: 12, borderRadius: 8, marginBottom: 16, textAlign: "center", width: "100%" }}>
+        <Text
+          style={{
+            color: "#ef5350",
+            backgroundColor: "rgba(244, 63, 94, 0.1)",
+            paddingHorizontal: 12,
+            paddingVertical: 12,
+            borderRadius: 8,
+            marginBottom: 16,
+            textAlign: "center",
+            width: "100%",
+          }}
+        >
           {error}
         </Text>
       )}
@@ -148,11 +214,18 @@ export default function ProfileSetupPage() {
           width: "100%",
           justifyContent: "center",
         }}
-        onPress={handleSubmit(onSubmit)}
+        onPress={() => handleSubmit(onSubmit)()}
         disabled={isLoading}
       >
         <Ionicons name="checkmark-circle-outline" size={22} color="white" />
-        <Text style={{ color: "white", fontWeight: "600", fontSize: 16, marginLeft: 8 }}>
+        <Text
+          style={{
+            color: "white",
+            fontWeight: "600",
+            fontSize: 16,
+            marginLeft: 8,
+          }}
+        >
           {isLoading ? "Speichert..." : "Profil speichern"}
         </Text>
       </Pressable>
@@ -176,7 +249,7 @@ const FloatingInput = ({
   placeholder?: string;
 }) => {
   const [isFocused, setIsFocused] = useState(false);
-  const animatedValue = useRef(new Animated.Value(value ? 1 : 0)).current;
+  const animatedValue = useState(() => new Animated.Value(value ? 1 : 0))[0];
 
   useEffect(() => {
     Animated.timing(animatedValue, {
@@ -189,13 +262,29 @@ const FloatingInput = ({
   const labelAnimStyle = {
     position: "absolute" as const,
     left: 40,
-    top: animatedValue.interpolate({ inputRange: [0, 1], outputRange: [18, -8] }),
-    fontSize: animatedValue.interpolate({ inputRange: [0, 1], outputRange: [16, 12] }),
+    top: animatedValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: [18, -8],
+    }),
+    fontSize: animatedValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: [16, 12],
+    }),
     color: "#aaa",
   };
 
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", borderBottomWidth: 2, borderBottomColor: "#475569", marginBottom: 24, width: "100%", paddingBottom: 8 }}>
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        borderBottomWidth: 2,
+        borderBottomColor: "#475569",
+        marginBottom: 24,
+        width: "100%",
+        paddingBottom: 8,
+      }}
+    >
       <Ionicons name={icon} size={20} color="#666" style={{ marginRight: 8 }} />
       <View style={{ flex: 1 }}>
         <Animated.Text style={labelAnimStyle}>{label}</Animated.Text>

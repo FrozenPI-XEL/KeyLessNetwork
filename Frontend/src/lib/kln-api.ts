@@ -23,13 +23,18 @@ const MAX_CLOCK_SKEW_SECONDS = 30;
 // Was der Nutzer sehen darf, entscheidet die Datenbank (Row Level Security), nicht die App.
 export async function loadLockers(): Promise<Locker[]> {
   const [cabs, secrets] = await Promise.all([
-    supabase.from("kln_lockers").select("id,name,host,port,https").order("name"),
+    supabase
+      .from("kln_lockers")
+      .select("id,name,host,port,https")
+      .order("name"),
     supabase.from("kln_locker_secrets").select("locker_id,key_hex"),
   ]);
   if (cabs.error) throw new Error(cabs.error.message);
   if (secrets.error) throw new Error(secrets.error.message);
 
-  const keys = new Map<string, string>((secrets.data ?? []).map((s: any) => [s.locker_id, s.key_hex]));
+  const keys = new Map<string, string>(
+    (secrets.data ?? []).map((s: any) => [s.locker_id, s.key_hex]),
+  );
   return (cabs.data ?? [])
     .filter((c: any) => keys.has(c.id))
     .map((c: any) => ({
@@ -106,10 +111,16 @@ export const apiCall = async (
       };
     }
     if (res.status === 429) {
-      return { ok: false, err: "Zu viele Fehlversuche, der Pi hat dich 5 Minuten gesperrt." };
+      return {
+        ok: false,
+        err: "Zu viele Fehlversuche, der Pi hat dich 5 Minuten gesperrt.",
+      };
     }
     if (res.status === 503) {
-      return { ok: false, err: "Der Pi erreicht den Anmeldedienst nicht (Internet am Pi prüfen)." };
+      return {
+        ok: false,
+        err: "Der Pi erreicht den Anmeldedienst nicht (Internet am Pi prüfen).",
+      };
     }
     if (!res.ok) {
       return { ok: false, err: `Serverfehler (HTTP ${res.status})` };
@@ -117,7 +128,9 @@ export const apiCall = async (
 
     // Antwort des Pi prüfen: nur mit gültiger Signatur wird sie akzeptiert.
     const respTs = res.headers.get("X-Response-Timestamp") ?? "";
-    const respSig = (res.headers.get("X-Response-Signature") ?? "").toLowerCase();
+    const respSig = (
+      res.headers.get("X-Response-Signature") ?? ""
+    ).toLowerCase();
     const respCanonical = [
       "KLN1-RESP",
       nonce,
@@ -128,8 +141,16 @@ export const apiCall = async (
     const expected = bytesToHex(hmac(sha256, key, utf8ToBytes(respCanonical)));
     const skew = Math.abs(Date.now() / 1000 - Number(respTs));
 
-    if (!respTs || !respSig || !constantTimeEqual(expected, respSig) || !(skew <= MAX_CLOCK_SKEW_SECONDS)) {
-      return { ok: false, err: "Antwort nicht vertrauenswürdig (Signatur ungültig)." };
+    if (
+      !respTs ||
+      !respSig ||
+      !constantTimeEqual(expected, respSig) ||
+      !(skew <= MAX_CLOCK_SKEW_SECONDS)
+    ) {
+      return {
+        ok: false,
+        err: "Antwort nicht vertrauenswürdig (Signatur ungültig).",
+      };
     }
 
     let data: any = {};
@@ -140,7 +161,8 @@ export const apiCall = async (
     }
     return { ok: true, data };
   } catch (e: any) {
-    if (e?.name === "AbortError") return { ok: false, err: "Zeitüberschreitung" };
+    if (e?.name === "AbortError")
+      return { ok: false, err: "Zeitüberschreitung" };
     return { ok: false, err: e?.message || String(e) };
   } finally {
     clearTimeout(timer);

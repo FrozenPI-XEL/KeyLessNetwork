@@ -1,7 +1,6 @@
 import { Tabs } from "expo-router";
-import React from "react";
 import { useAuthStore } from "../../store/authStore";
-import { Ionicons, MaterialIcons} from "@expo/vector-icons";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 
 // SDK 58: initialRouteName-Prop entfernt -> anchor über unstable_settings
 export const unstable_settings = {
@@ -34,7 +33,11 @@ export default function TabsLayout() {
             // Ab SDK 58 bleiben geschützte Routen registriert: Tab für Nicht-Admins zusätzlich ausblenden.
             href: isadmin ? undefined : null,
             tabBarIcon: ({ color, size }) => (
-              <MaterialIcons name="admin-panel-settings" size={size} color={color} />
+              <MaterialIcons
+                name="admin-panel-settings"
+                size={size}
+                color={color as string}
+              />
             ),
           }}
         />
@@ -45,7 +48,7 @@ export default function TabsLayout() {
         options={{
           title: "Startseite",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-sharp" size={size} color={color} />
+            <Ionicons name="home-sharp" size={size} color={color as string} />
           ),
           headerShown: false,
         }}
@@ -55,24 +58,24 @@ export default function TabsLayout() {
         options={{
           title: "Steuerung",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="game-controller-outline" size={size} color={color} />
+            <Ionicons
+              name="game-controller-outline"
+              size={size}
+              color={color as string}
+            />
           ),
         }}
       />
-
 
       <Tabs.Screen
         name="profile"
         options={{
           title: "Mein Account",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-sharp" size={size} color={color} />
+            <Ionicons name="person-sharp" size={size} color={color as string} />
           ),
         }}
       />
-      
     </Tabs>
-    
-    
   );
 }

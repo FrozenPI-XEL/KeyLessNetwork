@@ -1,9 +1,24 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { getRandomBytes } from "expo-crypto";
 import { supabase } from "../../hooks/supabase-client";
-import { cardStyle, dangerButton, formCardStyle, headingStyle, inputStyle, mutedText, primaryButton } from "./ui";
+import {
+  cardStyle,
+  dangerButton,
+  formCardStyle,
+  headingStyle,
+  inputStyle,
+  mutedText,
+  primaryButton,
+} from "./ui";
 
 type CodeItem = { id: number; code: string };
 
@@ -34,6 +49,7 @@ export default function CodesTab() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Daten beim Öffnen einmal laden
     load();
   }, [load]);
 
@@ -44,7 +60,9 @@ export default function CodesTab() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.from("codes").insert([{ code, genutzt: false }]);
+    const { error } = await supabase
+      .from("codes")
+      .insert([{ code, genutzt: false }]);
     if (error) Alert.alert("Fehler", error.message);
     else {
       setNewCode("");
@@ -72,30 +90,68 @@ export default function CodesTab() {
   return (
     <View>
       <Text style={headingStyle}>Code-Verwaltung</Text>
-      <Text style={{ ...mutedText, marginBottom: 12 }}>Offene Einladungscodes (jeder Code funktioniert genau einmal).</Text>
+      <Text style={{ ...mutedText, marginBottom: 12 }}>
+        Offene Einladungscodes (jeder Code funktioniert genau einmal).
+      </Text>
 
-      {loading && <ActivityIndicator size="large" color="#6366f1" style={{ marginVertical: 20 }} />}
+      {loading && (
+        <ActivityIndicator
+          size="large"
+          color="#6366f1"
+          style={{ marginVertical: 20 }}
+        />
+      )}
 
       {codes.map((c) => (
         <View key={c.id} style={cardStyle}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
             <View>
-              <Text style={{ color: "white", fontWeight: "bold", fontSize: 16 }}>{c.code}</Text>
+              <Text
+                style={{ color: "white", fontWeight: "bold", fontSize: 16 }}
+              >
+                {c.code}
+              </Text>
               <Text style={mutedText}>⏳ Verfügbar</Text>
             </View>
-            <TouchableOpacity onPress={() => deleteCode(c.id)} style={dangerButton}>
+            <TouchableOpacity
+              onPress={() => deleteCode(c.id)}
+              style={dangerButton}
+            >
               <Ionicons name="trash" size={16} color="white" />
             </TouchableOpacity>
           </View>
         </View>
       ))}
 
-      {!loading && codes.length === 0 ? <Text style={mutedText}>Keine offenen Codes.</Text> : null}
+      {!loading && codes.length === 0 ? (
+        <Text style={mutedText}>Keine offenen Codes.</Text>
+      ) : null}
 
       <View style={formCardStyle}>
-        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            marginBottom: 12,
+          }}
+        >
           <Ionicons name="key" size={20} color="white" />
-          <Text style={{ color: "white", fontWeight: "bold", fontSize: 16, marginLeft: 8 }}>Neuer Code</Text>
+          <Text
+            style={{
+              color: "white",
+              fontWeight: "bold",
+              fontSize: 16,
+              marginLeft: 8,
+            }}
+          >
+            Neuer Code
+          </Text>
         </View>
 
         <TouchableOpacity
@@ -104,7 +160,9 @@ export default function CodesTab() {
           style={{ ...primaryButton, marginBottom: 12 }}
         >
           <Ionicons name="shuffle" size={18} color="white" />
-          <Text style={{ color: "white", fontWeight: "bold", marginLeft: 8 }}>Zufälligen Code erzeugen</Text>
+          <Text style={{ color: "white", fontWeight: "bold", marginLeft: 8 }}>
+            Zufälligen Code erzeugen
+          </Text>
         </TouchableOpacity>
 
         <TextInput
@@ -117,9 +175,15 @@ export default function CodesTab() {
           autoCapitalize="characters"
         />
 
-        <TouchableOpacity onPress={() => addCode(newCode)} disabled={loading} style={primaryButton}>
+        <TouchableOpacity
+          onPress={() => addCode(newCode)}
+          disabled={loading}
+          style={primaryButton}
+        >
           <Ionicons name="add-circle" size={18} color="white" />
-          <Text style={{ color: "white", fontWeight: "bold", marginLeft: 8 }}>Code hinzufügen</Text>
+          <Text style={{ color: "white", fontWeight: "bold", marginLeft: 8 }}>
+            Code hinzufügen
+          </Text>
         </TouchableOpacity>
       </View>
     </View>

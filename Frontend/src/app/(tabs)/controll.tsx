@@ -65,7 +65,10 @@ function ControlView({ cab, onBack }: { cab: Locker; onBack: () => void }) {
   // ohnehin nacheinander ab. Die Ref blockt auch Doppeltipps, bevor der State neu gezeichnet ist.
   const busyRef = useRef(false);
   const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [busy, setBusy] = useState<{ lock: number; action: "open" | "close" } | null>(null);
+  const [busy, setBusy] = useState<{
+    lock: number;
+    action: "open" | "close";
+  } | null>(null);
 
   useEffect(() => {
     return () => {
@@ -80,7 +83,10 @@ function ControlView({ cab, onBack }: { cab: Locker; onBack: () => void }) {
     try {
       const r = await apiCall(cab, `/lock/${lock}/${action}`, "POST");
       if (!r.ok) {
-        Alert.alert("Fehler", `Konnte Schloss ${lock} nicht ${action}: ${r.err}`);
+        Alert.alert(
+          "Fehler",
+          `Konnte Schloss ${lock} nicht ${action}: ${r.err}`,
+        );
       } else if (r.data?.success === false) {
         Alert.alert("Hinweis", String(r.data.error ?? "Aktion nicht möglich"));
       }
@@ -94,7 +100,14 @@ function ControlView({ cab, onBack }: { cab: Locker; onBack: () => void }) {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#0f172a", justifyContent: "center", alignItems: "center" }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#0f172a",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
         <ActivityIndicator size="large" color="#ffffff" />
         <Text style={{ color: "white", marginTop: 8 }}>Verbinde...</Text>
         <TouchableOpacity onPress={onBack} style={{ marginTop: 24 }}>
@@ -105,13 +118,26 @@ function ControlView({ cab, onBack }: { cab: Locker; onBack: () => void }) {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: "#0f172a" }} contentContainerStyle={{ flexGrow: 1, padding: 16 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: "#0f172a" }}
+      contentContainerStyle={{ flexGrow: 1, padding: 16 }}
+    >
       <TouchableOpacity onPress={onBack} style={{ marginBottom: 12 }}>
         <Text style={{ color: "#94a3b8", fontSize: 16 }}>‹ Alle Locker</Text>
       </TouchableOpacity>
 
-      <View style={{ backgroundColor: "#0f172a", borderRadius: 12, padding: 16 }}>
-        <Text style={{ color: "white", fontSize: 28, fontWeight: "bold", marginBottom: 16, textAlign: "center" }}>
+      <View
+        style={{ backgroundColor: "#0f172a", borderRadius: 12, padding: 16 }}
+      >
+        <Text
+          style={{
+            color: "white",
+            fontSize: 28,
+            fontWeight: "bold",
+            marginBottom: 16,
+            textAlign: "center",
+          }}
+        >
           {cab.name}
         </Text>
 
@@ -121,7 +147,11 @@ function ControlView({ cab, onBack }: { cab: Locker; onBack: () => void }) {
 
         {locks.map((lockNumber) => (
           <View key={lockNumber} style={{ marginBottom: 16 }}>
-            <Text style={{ color: "white", fontWeight: "600", marginBottom: 8 }}>Schloss {lockNumber}</Text>
+            <Text
+              style={{ color: "white", fontWeight: "600", marginBottom: 8 }}
+            >
+              Schloss {lockNumber}
+            </Text>
             <View style={{ flexDirection: "row", gap: 8 }}>
               <TouchableOpacity
                 onPress={() => lockAction(lockNumber, "open")}
@@ -134,8 +164,16 @@ function ControlView({ cab, onBack }: { cab: Locker; onBack: () => void }) {
                   opacity: busy !== null ? 0.4 : 1,
                 }}
               >
-                <Text style={{ color: "white", textAlign: "center", fontWeight: "bold" }}>
-                  {busy?.lock === lockNumber && busy.action === "open" ? "Öffnet…" : "Auf"}
+                <Text
+                  style={{
+                    color: "white",
+                    textAlign: "center",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {busy?.lock === lockNumber && busy.action === "open"
+                    ? "Öffnet…"
+                    : "Auf"}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -149,8 +187,16 @@ function ControlView({ cab, onBack }: { cab: Locker; onBack: () => void }) {
                   opacity: busy !== null ? 0.4 : 1,
                 }}
               >
-                <Text style={{ color: "white", textAlign: "center", fontWeight: "bold" }}>
-                  {busy?.lock === lockNumber && busy.action === "close" ? "Schließt…" : "Zu"}
+                <Text
+                  style={{
+                    color: "white",
+                    textAlign: "center",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {busy?.lock === lockNumber && busy.action === "close"
+                    ? "Schließt…"
+                    : "Zu"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -192,6 +238,7 @@ export default function ControlScreen() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Daten beim Öffnen einmal laden
     refresh();
     const { data: sub } = supabase.auth.onAuthStateChange((event: string) => {
       if (event === "SIGNED_OUT") {
@@ -209,7 +256,10 @@ export default function ControlScreen() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return lockers;
-    return lockers.filter((c) => c.name.toLowerCase().includes(q) || c.host.toLowerCase().includes(q));
+    return lockers.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) || c.host.toLowerCase().includes(q),
+    );
   }, [lockers, query]);
 
   if (selected) {
@@ -218,7 +268,14 @@ export default function ControlScreen() {
 
   if (!ready) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#0f172a", justifyContent: "center", alignItems: "center" }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#0f172a",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
         <ActivityIndicator size="large" color="#ffffff" />
       </View>
     );
@@ -226,7 +283,15 @@ export default function ControlScreen() {
 
   if (!loggedIn) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#0f172a", justifyContent: "center", alignItems: "center", padding: 24 }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#0f172a",
+          justifyContent: "center",
+          alignItems: "center",
+          padding: 24,
+        }}
+      >
         <Text style={{ color: "white", fontSize: 18, textAlign: "center" }}>
           Bitte melde dich an, um deine Locker zu sehen.
         </Text>
@@ -236,7 +301,15 @@ export default function ControlScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0f172a", padding: 16 }}>
-      <Text style={{ color: "white", fontSize: 28, fontWeight: "bold", marginBottom: 16, textAlign: "center" }}>
+      <Text
+        style={{
+          color: "white",
+          fontSize: 28,
+          fontWeight: "bold",
+          marginBottom: 16,
+          textAlign: "center",
+        }}
+      >
         Meine Locker
       </Text>
 
@@ -250,7 +323,11 @@ export default function ControlScreen() {
         onChangeText={setQuery}
       />
 
-      {loadError ? <Text style={{ color: "#f87171", marginBottom: 8 }}>Fehler beim Laden: {loadError}</Text> : null}
+      {loadError ? (
+        <Text style={{ color: "#f87171", marginBottom: 8 }}>
+          Fehler beim Laden: {loadError}
+        </Text>
+      ) : null}
 
       <FlatList
         data={filtered}
@@ -263,16 +340,27 @@ export default function ControlScreen() {
           setRefreshing(false);
         }}
         ListEmptyComponent={
-          <Text style={{ color: "#94a3b8", textAlign: "center", marginTop: 24 }}>
-            {lockers.length === 0 ? "Dir ist noch kein Locker freigegeben. Frag einen Admin." : "Kein Locker gefunden."}
+          <Text
+            style={{ color: "#94a3b8", textAlign: "center", marginTop: 24 }}
+          >
+            {lockers.length === 0
+              ? "Dir ist noch kein Locker freigegeben. Frag einen Admin."
+              : "Kein Locker gefunden."}
           </Text>
         }
         renderItem={({ item }) => (
           <TouchableOpacity
             onPress={() => setSelected(item)}
-            style={{ backgroundColor: "#1e293b", borderRadius: 12, padding: 16, marginBottom: 10 }}
+            style={{
+              backgroundColor: "#1e293b",
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 10,
+            }}
           >
-            <Text style={{ color: "white", fontSize: 18, fontWeight: "600" }}>{item.name}</Text>
+            <Text style={{ color: "white", fontSize: 18, fontWeight: "600" }}>
+              {item.name}
+            </Text>
             <Text style={{ color: "#94a3b8", marginTop: 4 }}>
               {item.host}:{item.port}
             </Text>
