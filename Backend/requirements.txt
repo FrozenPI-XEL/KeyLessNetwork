@@ -1,0 +1,5 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+RPi.GPIO>=0.7.1; sys_platform == "linux"
+adafruit-blinka>=8.0.0; sys_platform == "linux"
+adafruit-circuitpython-neopixel>=6.3.0; sys_platform == "linux"

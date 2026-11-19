@@ -1,11 +1,23 @@
 import { Stack } from "expo-router";
-import React from "react";
+import React, { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { useAuthStore } from "../store/authStore";
+import { supabase } from "../hooks/supabase-client";
 
 
 export default function RootLayout() {
   const { isLoggedIn} = useAuthStore();
+
+  // Beim Start prüfen, ob noch eine echte Supabase-Sitzung existiert, und bei Abmeldung/Ablauf ausloggen.
+  useEffect(() => {
+    useAuthStore.getState().syncSession();
+    const { data } = supabase.auth.onAuthStateChange((event: string) => {
+      if (event === "SIGNED_OUT") {
+        useAuthStore.setState({ isLoggedIn: false, isadmin: false, username: undefined });
+      }
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
 
   return (
     

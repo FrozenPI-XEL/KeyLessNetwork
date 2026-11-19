@@ -1,9 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AppState } from "react-native";
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "";
 
 let supabaseClient: any = null;
+let appStateListenerAdded = false;
 
 export const initSupabase = () => {
   if (!supabaseUrl || !supabaseAnonKey) {
@@ -12,7 +15,25 @@ export const initSupabase = () => {
   }
 
   if (!supabaseClient) {
-    supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+    // Der Login (Session) wird auf dem Gerät gespeichert und automatisch erneuert.
+    supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        storage: AsyncStorage,
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: false,
+      },
+    });
+
+    // Token nur erneuern, solange die App im Vordergrund ist.
+    if (!appStateListenerAdded) {
+      appStateListenerAdded = true;
+      AppState.addEventListener("change", (state) => {
+        if (!supabaseClient) return;
+        if (state === "active") supabaseClient.auth.startAutoRefresh();
+        else supabaseClient.auth.stopAutoRefresh();
+      });
+    }
   }
   return supabaseClient;
 };

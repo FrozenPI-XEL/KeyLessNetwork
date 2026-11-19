@@ -4,7 +4,6 @@ import { useForm, Controller } from "react-hook-form";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../store/authStore";
-import { supabase } from "../hooks/supabase-client";
 
 type FormData = {
   username: string;
@@ -36,26 +35,12 @@ export default function LoginForm() {
     setIsLoading(true);
 
     try {
-      const { data: userData, error: loginError } = await supabase
-        .from("codes")
-        .select("username, code2, Role")
-        .eq("username", data.username.trim())
-        .eq("code2", data.password)
-        .single();
-
-      if (loginError || !userData) {
-        setIsLocked(false);
-        setError("Benutzername oder Passwort falsch!");
-        setIsLoading(false);
-        return;
-      }
-
+      await logIn(data.username.trim(), data.password);
       setIsLocked(true);
-      logIn(userData.username, userData.Role === true);
       router.replace("/(tabs)/home");
     } catch (err) {
-      console.error(err);
-      setError("Ein Fehler ist aufgetreten. Bitte versuche es erneut.");
+      setIsLocked(false);
+      setError("Benutzername oder Passwort falsch!");
     }
 
     setIsLoading(false);

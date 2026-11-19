@@ -1,50 +1,14 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, ActivityIndicator } from "react-native";
+import React from "react";
+import { View, Text } from "react-native";
 import { useAuthStore } from "@/store/authStore";
-import { supabase } from "@/hooks/supabase-client";
 
-type UserInfo = {
-  username: string;
-  code2: string;
-  Role: boolean;
-};
-
+// Profilkarte: zeigt nur noch Benutzername und Rolle aus der Anmeldung.
+// Das Passwort wird nicht mehr angezeigt oder gespeichert (die Anmeldung läuft über Supabase Auth).
 export default function InfoCard() {
-  const currentUsername = useAuthStore((s) => s.username);
+  const username = useAuthStore((s) => s.username);
   const isadmin = useAuthStore((s) => s.isadmin);
-  const [user, setUser] = useState<UserInfo | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!currentUsername) {
-      setUser(null);
-      setLoading(false);
-      return;
-    }
-
-    const loadUser = async () => {
-      const { data, error } = await supabase
-        .from("codes")
-        .select("username, code2, Role")
-        .eq("username", currentUsername)
-        .single();
-
-      if (!error && data) {
-        setUser(data);
-      }
-      setLoading(false);
-    };
-
-    loadUser();
-  }, [currentUsername]);
-
-  if (loading) {
-    return <ActivityIndicator color="white" style={{ marginVertical: 40 }} />;
-  }
-
-  if (!user) return null;
-
-  const role = isadmin || user.Role ? "Admin" : "User";
+  if (!username) return null;
 
   return (
     <View
@@ -61,13 +25,10 @@ export default function InfoCard() {
         Deine Daten
       </Text>
       <Text style={{ color: "#cbd5e1", marginBottom: 4, fontSize: 18, fontWeight: "bold" }}>
-        Benutzername: {user.username}
+        Benutzername: {username}
       </Text>
       <Text style={{ color: "#cbd5e1", marginBottom: 4, fontSize: 18, fontWeight: "bold" }}>
-        Passwort: {user.code2}
-      </Text>
-      <Text style={{ color: "#cbd5e1", marginBottom: 4, fontSize: 18, fontWeight: "bold" }}>
-        Rolle: {role}
+        Rolle: {isadmin ? "Admin" : "User"}
       </Text>
     </View>
   );

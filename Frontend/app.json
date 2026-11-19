@@ -17,7 +17,11 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.leonayvazian.myapp",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocalNetworkUsageDescription": "Die App verbindet sich mit deinen Schränken (Raspberry Pi) im lokalen Netzwerk.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
       }
     },
     "android": {
@@ -28,7 +32,8 @@
       "package": "com.leon_ayvazian.keylessnetwork"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "output": "static"
     },
     "plugins": [
       "expo-router",

@@ -1,14 +1,18 @@
-import { Tabs, Stack } from "expo-router";
+import { Tabs } from "expo-router";
 import React from "react";
 import { useAuthStore } from "../../store/authStore";
 import { Ionicons, MaterialIcons} from "@expo/vector-icons";
+
+// SDK 58: initialRouteName-Prop entfernt -> anchor über unstable_settings
+export const unstable_settings = {
+  anchor: "home",
+};
 
 export default function TabsLayout() {
   const { isadmin } = useAuthStore();
 
   return (
     <Tabs
-      initialRouteName="home"
       screenOptions={{
         tabBarStyle: {
           backgroundColor: "#0f172b",
@@ -22,17 +26,19 @@ export default function TabsLayout() {
         headerTitleAlign: "center",
       }}
     >
-      <Stack.Protected guard={isadmin}>
+      <Tabs.Protected guard={isadmin}>
         <Tabs.Screen
           name="admin"
           options={{
             title: "Admin",
+            // Ab SDK 58 bleiben geschützte Routen registriert: Tab für Nicht-Admins zusätzlich ausblenden.
+            href: isadmin ? undefined : null,
             tabBarIcon: ({ color, size }) => (
               <MaterialIcons name="admin-panel-settings" size={size} color={color} />
             ),
           }}
         />
-      </Stack.Protected>
+      </Tabs.Protected>
 
       <Tabs.Screen
         name="home"

@@ -1,51 +1,134 @@
+import sys, platform
+if platform.system() == "Windows":
+    from unittest.mock import MagicMock
+    for _m in ["RPi", "RPi.GPIO", "board", "busio", "digitalio",
+               "neopixel", "adafruit_blinka", "smbus", "smbus2",
+               "spidev", "gpiozero", "pigpio", "mfrc522"]:
+        sys.modules[_m] = MagicMock()
+    print("Windows erkannt - Pi-Hardware wird simuliert")
+
+import atexit
 import hashlib
 import hmac
 import json
 import os
 import secrets
+import signal
 import sys
 import threading
 import time
+import urllib.error
+import urllib.request
+import uuid
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
-# Schlüsselverwaltung (Kommandozeile):  python main.py genkey <geraete-id>
-# Erzeugt einen 256-Bit-Schlüssel für ein Gerät (z. B. ein Handy) und legt ihn
-# in keys.json ab. Den ausgegebenen Schlüssel einmalig in die App eintragen.
+# Einrichtung eines Lockers (Kommandozeile, einmalig auf dem Pi):
+#
+#   python main.py init --supabase-url https://XXXX.supabase.co --anon-key <anon key> [--locks 4]
+#       erzeugt Locker-ID und 256-Bit-Schlüssel und zeigt den Setup-Code an.
+#       --locks = Anzahl der Schlösser dieser Platine (1 bis 4, Standard 4; die kleine Platine hat 2)
+#   python main.py rotate
+#       erzeugt einen neuen Schlüssel (gleiche Locker-ID) und einen neuen Setup-Code
+#
+# Den Setup-Code gibt der Admin EINMAL im Admin-Tab der App ein. Der Schlüssel läuft dabei nie
+# übers Netz. Alle anderen Nutzer bekommen die Daten nach dem Login automatisch.
 # ---------------------------------------------------------------------------
-KEYS_FILE = Path(os.environ.get("KLN_KEYS_FILE", Path(__file__).with_name("keys.json")))
+CONFIG_FILE = Path(os.environ.get("KLN_CONFIG_FILE", Path(__file__).with_name("locker.json")))
 
 
-def _genkey_cli(device_id: str) -> None:
-    keys = {}
-    if KEYS_FILE.exists():
-        keys = json.loads(KEYS_FILE.read_text())
-    if device_id in keys:
-        print(f"Gerät '{device_id}' existiert schon. Zum Ersetzen erst aus keys.json löschen.")
-        sys.exit(1)
-    key_hex = secrets.token_hex(32)
-    keys[device_id] = key_hex
-    KEYS_FILE.write_text(json.dumps(keys, indent=2))
-    os.chmod(KEYS_FILE, 0o600)
-    print(f"Geräte-ID: {device_id}")
-    print(f"Schlüssel: {key_hex}")
-    print("Diesen Schlüssel nur einmal sicher in die App übertragen und nirgends sonst speichern.")
+def _write_config(cfg: dict) -> None:
+    fd = os.open(CONFIG_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        json.dump(cfg, f, indent=2)
+    os.chmod(CONFIG_FILE, 0o600)
+
+
+def _print_setup_code(cfg: dict) -> None:
+    raw = uuid.UUID(cfg["locker_id"]).hex + cfg["key_hex"]  # 32 + 64 Hex-Zeichen
+    grouped = "-".join(raw[i:i + 8] for i in range(0, len(raw), 8))
+    print()
+    print("Locker-ID:", cfg["locker_id"])
+    print("Setup-Code (in der App als Admin unter 'Locker' eingeben):")
+    print()
+    print("  KLN1-" + grouped)
+    print()
+    print("Den Code nirgends sonst speichern (kein Chat, keine Notiz). Nach der Eingabe in der App")
+    print("kann er aus dem Terminal-Verlauf gelöscht werden.")
+
+
+def _setup_cli(argv: list) -> None:
+    cmd = argv[1]
+    args = {}
+    it = iter(argv[2:])
+    for a in it:
+        if a.startswith("--"):
+            args[a] = next(it, "")
+
+    if cmd == "init":
+        if CONFIG_FILE.exists():
+            sys.exit("Dieser Pi ist schon eingerichtet. Für einen neuen Schlüssel: python main.py rotate")
+        url = (args.get("--supabase-url") or input("Supabase-URL: ")).strip().rstrip("/")
+        anon = (args.get("--anon-key") or input("Supabase anon key: ")).strip()
+        if not url.startswith("https://") or not anon:
+            sys.exit("Supabase-URL muss mit https:// beginnen und der anon key darf nicht leer sein.")
+        try:
+            locks = int(args.get("--locks") or 4)
+        except ValueError:
+            locks = 0
+        if locks not in (1, 2, 3, 4):
+            sys.exit("--locks muss eine Zahl von 1 bis 4 sein.")
+        cfg = {
+            "locker_id": str(uuid.uuid4()),
+            "key_hex": secrets.token_hex(32),
+            "supabase_url": url,
+            "supabase_anon_key": anon,
+            "locks": locks,
+        }
+        _write_config(cfg)
+        _print_setup_code(cfg)
+    elif cmd == "rotate":
+        if not CONFIG_FILE.exists():
+            sys.exit("Noch nicht eingerichtet. Erst: python main.py init")
+        cfg = json.loads(CONFIG_FILE.read_text())
+        cfg["key_hex"] = secrets.token_hex(32)
+        _write_config(cfg)
+        _print_setup_code(cfg)
+        print("Der alte Schlüssel ist ab sofort ungültig. Den neuen Code als Admin in der App eingeben.")
+    else:
+        sys.exit("Benutzung: python main.py init | rotate")
     sys.exit(0)
 
 
-if __name__ == "__main__" and sys.argv[1:2] == ["genkey"]:
-    if len(sys.argv) != 3:
-        print("Benutzung: python main.py genkey <geraete-id>")
-        sys.exit(1)
-    _genkey_cli(sys.argv[2])
+if __name__ == "__main__" and sys.argv[1:2] in (["init"], ["rotate"]):
+    _setup_cli(sys.argv)
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
-import RPi.GPIO as GPIO
+try:
+    import RPi.GPIO as GPIO
+except ImportError:
+    from unittest.mock import MagicMock
+    GPIO = MagicMock()
+    print("Kein Pi erkannt - GPIO wird simuliert")
 import board
 import neopixel
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+
+# Nur zum Testen am PC mit der Web-Version der App (Browser): erlaubt Zugriffe von anderen Adressen.
+# Auf dem echten Pi bleibt das aus, die Handy-App braucht es nicht.
+if platform.system() == "Windows" or os.environ.get("KLN_CORS") == "1":
+    from fastapi.middleware.cors import CORSMiddleware
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["X-Response-Timestamp", "X-Response-Signature"],
+    )
 
 MOTOR_RUN_SECONDS = 0.1
 LED_ACTIVE_SECONDS = 1.5
@@ -55,18 +138,50 @@ GPIO.setmode(GPIO.BCM)
 # GPIO Pins für die Motoren (BCM-Nummern).
 # Schloss 3 = physische Pins 32 und 36 -> BCM 12 und 16
 # Schloss 4 = physische Pins 38 und 40 -> BCM 20 und 21
-motors = {
+ALL_MOTORS = {
     1: {"in1": 17, "in2": 15, "state": "closed"},
     2: {"in1": 27, "in2": 23, "state": "closed"},
     3: {"in1": 12, "in2": 16, "state": "closed"},
     4: {"in1": 20, "in2": 21, "state": "closed"},
 }
 
+
+def _configured_lock_count() -> int:
+    """Anzahl der Schlösser dieser Platine aus locker.json (Standard 4). Nachträglich ändern: "locks" in
+    locker.json anpassen und den Server neu starten."""
+    try:
+        return max(1, min(4, int(json.loads(CONFIG_FILE.read_text()).get("locks", 4))))
+    except Exception:
+        return 4
+
+
+# Nur die Schlösser aktivieren, die diese Platine wirklich hat. Die App zeigt genau diese an.
+motors = {k: v for k, v in ALL_MOTORS.items() if k <= _configured_lock_count()}
+
 motor_lock = threading.Lock()
 
 for m in motors.values():
     GPIO.setup(m["in1"], GPIO.OUT)
     GPIO.setup(m["in2"], GPIO.OUT)
+
+
+# Motor-Pins beim Beenden immer stromlos machen und GPIO freigeben, egal wie der Prozess stirbt
+# (Strg+C, systemd stop/restart, Absturz) - sonst bleiben die Pins in einem undefinierten Zustand.
+def _cleanup_gpio(*_args):
+    try:
+        for m in motors.values():
+            GPIO.output(m["in1"], GPIO.LOW)
+            GPIO.output(m["in2"], GPIO.LOW)
+        GPIO.cleanup()
+    except Exception:
+        pass
+    if _args:
+        sys.exit(0)
+
+
+atexit.register(_cleanup_gpio)
+signal.signal(signal.SIGTERM, _cleanup_gpio)
+signal.signal(signal.SIGINT, _cleanup_gpio)
 
 
 def motor_stop(m):
@@ -128,20 +243,25 @@ def set_status_leds(state: str | None = None, duration: float | None = None):
 
 
 # ===========================================================================
-# Sicherheit: signierte Anfragen und signierte Antworten
+# Sicherheit
 #
-# Jede Anfrage trägt vier Header:
-#   X-Device-Id, X-Timestamp, X-Nonce, X-Signature
-# Signatur = HMAC-SHA256(geraeteschluessel, kanonischer String)
-# Kanonischer String (Zeilen mit \n getrennt):
-#   KLN1 / METHODE / PFAD / QUERY / TIMESTAMP / NONCE / SHA256(BODY) hex
-# Der Pi antwortet ebenfalls signiert (X-Response-Timestamp, X-Response-Signature),
-# sodass die App prüfen kann, dass die Antwort wirklich vom Pi kommt.
+# Eine Anfrage wird nur ausgeführt, wenn ALLES stimmt:
+#   1. X-Locker-Id passt zu diesem Pi
+#   2. X-Signature: HMAC-SHA256 mit dem Lockerschlüssel über
+#        KLN1 / METHODE / PFAD / QUERY / TIMESTAMP / NONCE / SHA256(BODY)
+#   3. Zeitstempel höchstens 30 s alt, Nonce noch nie benutzt (Replay-Schutz)
+#   4. Authorization: Bearer <Supabase-Login-Token>: Supabase bestätigt, dass der
+#      eingeloggte Nutzer für diesen Locker freigegeben ist
+# Der Pi antwortet ebenfalls signiert (X-Response-Timestamp, X-Response-Signature).
+# Der Lockerschlüssel wird nie über die Verbindung zum Pi übertragen.
 # ===========================================================================
 TIMESTAMP_TOLERANCE_SECONDS = 30
 NONCE_TTL_SECONDS = TIMESTAMP_TOLERANCE_SECONDS * 2 + 5
 NONCE_MAX_ENTRIES = 10000
 MAX_BODY_BYTES = 4096
+MAX_TOKEN_LENGTH = 4096
+
+MEMBER_CACHE_SECONDS = 60  # so schnell wirkt das Entziehen einer Freigabe
 
 MAX_FAILURES = 5
 FAILURE_WINDOW_SECONDS = 60
@@ -149,34 +269,40 @@ BLOCK_SECONDS = 300
 
 _DUMMY_KEY = secrets.token_bytes(32)
 
-_keys_cache = {"mtime": None, "keys": {}}
-_keys_lock = threading.Lock()
+_cfg_cache = {"mtime": None, "cfg": None}
+_cfg_lock = threading.Lock()
 
-_nonces = {}  # (device_id, nonce) -> Ablaufzeit
+_nonces = {}  # nonce -> Ablaufzeit
 _nonce_lock = threading.Lock()
 
 _failures = {}  # ip -> Liste von Zeitstempeln
 _blocked_until = {}  # ip -> Zeitstempel
 _fail_lock = threading.Lock()
 
+_member_cache = {}  # sha256(token) -> Ablaufzeit
+_member_lock = threading.Lock()
 
-def _load_keys() -> dict:
-    """Lädt keys.json und liest sie neu ein, sobald sie sich ändert (Schlüssel widerrufen ohne Neustart)."""
-    with _keys_lock:
+
+def _load_config() -> dict | None:
+    """Lädt locker.json und liest sie neu ein, sobald sie sich ändert (z. B. nach 'rotate')."""
+    with _cfg_lock:
         try:
-            mtime = KEYS_FILE.stat().st_mtime
+            mtime = CONFIG_FILE.stat().st_mtime
         except FileNotFoundError:
-            return {}
-        if _keys_cache["mtime"] != mtime:
-            raw = json.loads(KEYS_FILE.read_text())
-            keys = {}
-            for dev, key_hex in raw.items():
-                key = bytes.fromhex(key_hex)
-                if len(key) >= 32:
-                    keys[dev] = key
-            _keys_cache["keys"] = keys
-            _keys_cache["mtime"] = mtime
-        return _keys_cache["keys"]
+            return None
+        if _cfg_cache["mtime"] != mtime:
+            raw = json.loads(CONFIG_FILE.read_text())
+            cfg = {
+                "locker_id": str(raw["locker_id"]).lower(),
+                "key": bytes.fromhex(raw["key_hex"]),
+                "supabase_url": str(raw["supabase_url"]).rstrip("/"),
+                "anon": str(raw["supabase_anon_key"]),
+            }
+            if len(cfg["key"]) < 32:
+                return None
+            _cfg_cache["cfg"] = cfg
+            _cfg_cache["mtime"] = mtime
+        return _cfg_cache["cfg"]
 
 
 def _is_blocked(ip: str) -> bool:
@@ -200,7 +326,7 @@ def _register_failure(ip: str) -> None:
             _failures[ip] = []
 
 
-def _nonce_seen_or_store(device_id: str, nonce: str) -> bool:
+def _nonce_seen_or_store(nonce: str) -> bool:
     """True, wenn die Nonce schon benutzt wurde (Replay). Sonst wird sie gespeichert."""
     now = time.time()
     with _nonce_lock:
@@ -209,10 +335,49 @@ def _nonce_seen_or_store(device_id: str, nonce: str) -> bool:
                 del _nonces[k]
         if len(_nonces) >= NONCE_MAX_ENTRIES:
             return True  # lieber ablehnen als den Speicher fluten
-        if (device_id, nonce) in _nonces:
+        if nonce in _nonces:
             return True
-        _nonces[(device_id, nonce)] = now + NONCE_TTL_SECONDS
+        _nonces[nonce] = now + NONCE_TTL_SECONDS
         return False
+
+
+def _check_membership(token: str, cfg: dict):
+    """Fragt Supabase, ob der Nutzer hinter diesem Login-Token den Locker öffnen darf.
+    True = ja, False = nein, None = Supabase nicht erreichbar (dann wird abgelehnt)."""
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    now = time.time()
+    with _member_lock:
+        exp = _member_cache.get(token_hash)
+        if exp and exp > now:
+            return True
+
+    req = urllib.request.Request(
+        f"{cfg['supabase_url']}/rest/v1/rpc/kln_can_access",
+        data=json.dumps({"p_locker": cfg["locker_id"]}).encode(),
+        headers={
+            "apikey": cfg["anon"],
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            result = json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        # 401/403: Token ungültig oder abgelaufen -> kein Zugriff
+        return False if e.code in (401, 403) else None
+    except Exception:
+        return None
+
+    if result is True:
+        with _member_lock:
+            if len(_member_cache) > 1000:
+                for k in [k for k, v in _member_cache.items() if v < now]:
+                    del _member_cache[k]
+            _member_cache[token_hash] = now + MEMBER_CACHE_SECONDS
+        return True
+    return False
 
 
 def _canonical_request(request: Request, timestamp: str, nonce: str, body: bytes) -> bytes:
@@ -229,8 +394,7 @@ def _canonical_request(request: Request, timestamp: str, nonce: str, body: bytes
 
 
 class Auth:
-    def __init__(self, device_id: str, key: bytes, nonce: str):
-        self.device_id = device_id
+    def __init__(self, key: bytes, nonce: str):
         self.key = key
         self.nonce = nonce
 
@@ -247,41 +411,52 @@ async def authenticate(request: Request) -> Auth:
     if _is_blocked(ip):
         raise HTTPException(status_code=429, detail="Too many failed attempts")
 
-    device_id = request.headers.get("X-Device-Id", "")
+    cfg = _load_config()
+    if cfg is None:
+        raise HTTPException(status_code=503, detail="Not configured")
+
+    locker_id = request.headers.get("X-Locker-Id", "").lower()
     timestamp = request.headers.get("X-Timestamp", "")
     nonce = request.headers.get("X-Nonce", "")
     signature = request.headers.get("X-Signature", "")
+    auth_header = request.headers.get("Authorization", "")
 
-    if not (device_id and timestamp and nonce and signature):
+    if not (locker_id and timestamp and nonce and signature and auth_header.startswith("Bearer ")):
         raise _reject(request)
-    if len(nonce) < 16 or len(nonce) > 64 or len(device_id) > 64:
+    token = auth_header[7:].strip()
+    if not token or len(token) > MAX_TOKEN_LENGTH or len(nonce) < 16 or len(nonce) > 64:
         raise _reject(request)
 
     body = await request.body()
     if len(body) > MAX_BODY_BYTES:
         raise _reject(request)
 
-    key = _load_keys().get(device_id)
-    key_to_use = key if key is not None else _DUMMY_KEY
-
     expected = hmac.new(
-        key_to_use, _canonical_request(request, timestamp, nonce, body), hashlib.sha256
+        cfg["key"], _canonical_request(request, timestamp, nonce, body), hashlib.sha256
     ).hexdigest()
     signature_ok = hmac.compare_digest(expected, signature.lower())
+    id_ok = hmac.compare_digest(locker_id, cfg["locker_id"])
 
     try:
         ts_ok = abs(time.time() - int(timestamp)) <= TIMESTAMP_TOLERANCE_SECONDS
     except ValueError:
         ts_ok = False
 
-    if key is None or not signature_ok or not ts_ok:
+    if not (signature_ok and id_ok and ts_ok):
         raise _reject(request)
 
     # Nonce erst nach gültiger Signatur speichern, damit Fremde den Speicher nicht füllen können.
-    if _nonce_seen_or_store(device_id, nonce):
+    if _nonce_seen_or_store(nonce):
         raise _reject(request)
 
-    return Auth(device_id, key, nonce)
+    # Erst jetzt wird Supabase gefragt (so kann niemand ohne Schlüssel Anfragen dorthin auslösen).
+    allowed = await run_in_threadpool(_check_membership, token, cfg)
+    if allowed is None:
+        raise HTTPException(status_code=503, detail="Auth service unavailable")
+    if not allowed:
+        raise _reject(request)
+
+    return Auth(cfg["key"], nonce)
 
 
 def signed_response(auth: Auth, payload: dict, status_code: int = 200) -> Response:
@@ -410,21 +585,18 @@ def lock_status(lock_id: int, auth: Auth = Depends(authenticate)):
 
 
 # ===========================================================================
-# Start mit TLS:  python main.py
-# Zertifikat und Schlüssel per Umgebungsvariablen KLN_TLS_CERT / KLN_TLS_KEY.
-# Ohne TLS startet der Server nur, wenn KLN_ALLOW_INSECURE=1 gesetzt ist (nur zum Testen!).
+# Start:  python main.py   (oder wie bisher:  uvicorn main:app --host 0.0.0.0 --port 8443)
+# Optional mit TLS über KLN_TLS_CERT / KLN_TLS_KEY.
 # ===========================================================================
 if __name__ == "__main__":
     import uvicorn
 
+    if _load_config() is None:
+        sys.exit("Noch nicht eingerichtet. Erst: python main.py init --supabase-url ... --anon-key ...")
     cert = os.environ.get("KLN_TLS_CERT")
     key = os.environ.get("KLN_TLS_KEY")
-    if not _load_keys():
-        sys.exit("Keine Geräteschlüssel gefunden. Erst 'python main.py genkey <geraete-id>' ausführen.")
     if cert and key:
         uvicorn.run(app, host="0.0.0.0", port=8443, ssl_certfile=cert, ssl_keyfile=key)
-    elif os.environ.get("KLN_ALLOW_INSECURE") == "1":
-        print("WARNUNG: Start ohne TLS, nur zum Testen!")
-        uvicorn.run(app, host="0.0.0.0", port=8000)
     else:
-        sys.exit("KLN_TLS_CERT und KLN_TLS_KEY setzen (oder zum Testen KLN_ALLOW_INSECURE=1).")
+        print("Hinweis: Start ohne TLS. Der Lockerschlüssel wird nie übertragen, TLS ist trotzdem empfohlen.")
+        uvicorn.run(app, host="0.0.0.0", port=8443)

@@ -1,0 +1,8 @@
+
+Backend/locker.json
+Backend/keys.json
+__pycache__/
+*.pyc
+Frontend/.expo-test-export/
+Frontend/.env*.local
+Backend/locker*.json

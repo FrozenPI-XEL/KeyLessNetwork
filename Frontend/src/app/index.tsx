@@ -2,7 +2,6 @@ import { useRouter } from "expo-router";
 import React from "react";
 import { View, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuthStore } from "../store/authStore";
 
 
 
@@ -50,19 +49,6 @@ export default function IndexPage() {
   <Text style={{ marginTop: 48, textAlign: "center", fontSize: 12, color: "#6b7280" }}>
     v1.0 - Sichere Verwaltung mit Supabase
   </Text>
-  <Pressable
-    onPress={() => {
-      useAuthStore.setState({ isLoggedIn: true });
-      router.push("/(tabs)/home");
-    }}
-    style={{ marginTop: 16, width: "100%", flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "#16a34a", paddingHorizontal: 24, paddingVertical: 16 }}
-  >
-  <Ionicons name="construct" size={24} color="white" />
-  <Text style={{ marginLeft: 12, fontSize: 18, fontWeight: "bold", color: "white" }}>
-    Test Login
-  </Text>
-</Pressable>
-  
 
 </View>
 

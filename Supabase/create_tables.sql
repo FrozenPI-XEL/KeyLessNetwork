@@ -1,3 +1,7 @@
+-- ACHTUNG: Diese Datei ist nur die alte Grundeinrichtung. Ihre "public"-Policies unten erlauben JEDEM mit dem
+-- Anon-Key alles (auch Passwörter lesen und sich selbst zum Admin machen). Die sichere Variante steht in
+-- security_setup.sql. NACH dieser Datei immer security_setup.sql ausführen und diese Datei nicht erneut laufen lassen.
+
 -- Erstelle die codes Tabelle mit Role Spalte für Admin-Verwaltung
 CREATE TABLE IF NOT EXISTS codes (
   id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,

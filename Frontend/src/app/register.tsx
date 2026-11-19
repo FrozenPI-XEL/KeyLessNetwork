@@ -22,26 +22,13 @@ export default function RegisterPage() {
     const cleanedCode = formData.code.trim().toUpperCase();
 
     try {
-      const { data: codeData, error: checkError } = await supabase
-        .from("codes")
-        .select("*")
-        .eq("code", cleanedCode)
-        .eq("genutzt", false)
-        .single();
+      // Nur prüfen, ob der Code gültig ist. Verbraucht wird er erst bei der echten Registrierung (serverseitig).
+      const { data: isValid, error: checkError } = await supabase.rpc("kln_check_invite", {
+        p_code: cleanedCode,
+      });
 
-      if (checkError || !codeData) {
+      if (checkError || isValid !== true) {
         setError("Code ungültig oder bereits verwendet!");
-        setIsLoading(false);
-        return;
-      }
-
-      const { error: updateError } = await supabase
-        .from("codes")
-        .update({ genutzt: true })
-        .eq("code", cleanedCode);
-
-      if (updateError) {
-        setError("Fehler beim Speichern. Bitte versuche es erneut.");
         setIsLoading(false);
         return;
       }

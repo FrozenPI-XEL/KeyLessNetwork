@@ -4,6 +4,7 @@ import { useForm, Controller } from "react-hook-form";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../hooks/supabase-client";
+import { usernameToEmail, MAX_USERNAME_LENGTH } from "../store/authStore";
 
 type ProfileData = {
   username: string;
@@ -36,6 +37,11 @@ export default function ProfileSetupPage() {
       return;
     }
 
+    if (data.username.trim().length > MAX_USERNAME_LENGTH) {
+      setError(`Der Benutzername darf höchstens ${MAX_USERNAME_LENGTH} Zeichen lang sein!`);
+      return;
+    }
+
     if (!data.code2 || data.code2.length !== 8) {
       setError("Der Code muss 8 Zeichen lang sein!");
       return;
@@ -44,20 +50,30 @@ export default function ProfileSetupPage() {
     setIsLoading(true);
 
     try {
-      const { error: updateError } = await supabase
-        .from("codes")
-        .update({
-          username: data.username.trim(),
-          code2: data.code2,
-        })
-        .eq("code", code);
+      // Das Konto wird in Supabase Auth angelegt. Ob der Einladungscode gültig ist,
+      // prüft und verbraucht die Datenbank selbst (Trigger kln_handle_new_user).
+      const { error: signUpError } = await supabase.auth.signUp({
+        email: usernameToEmail(data.username),
+        password: data.code2,
+        options: {
+          data: { username: data.username.trim(), invite_code: code },
+        },
+      });
 
-      if (updateError) {
-        setError("Fehler beim Speichern des Profils!");
-        console.error(updateError);
+      if (signUpError) {
+        const alreadyUsed = /already|registered/i.test(signUpError.message || "");
+        setError(
+          alreadyUsed
+            ? "Dieser Benutzername ist schon vergeben!"
+            : "Registrierung fehlgeschlagen. Code ungültig, bereits verwendet oder Benutzername nicht erlaubt."
+        );
+        console.error(signUpError);
         setIsLoading(false);
         return;
       }
+
+      // Kein automatischer Login: der Nutzer meldet sich danach normal an.
+      await supabase.auth.signOut();
 
       Alert.alert("Erfolg!", "Profil erstellt. Bitte melde dich an.", [
         { text: "OK", onPress: () => router.push("/login") },
