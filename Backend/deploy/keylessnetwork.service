@@ -1,0 +1,28 @@
+# systemd-Dienst: startet den Locker-Server automatisch nach jedem Neustart des Pi.
+# Einrichten: siehe deploy/install-service.sh (einmal auf dem Pi ausführen).
+[Unit]
+Description=KeyLessNetwork Locker-Server
+# Der Pi braucht Internet (Supabase) und eine korrekte Uhrzeit (Signaturen), bevor er startet.
+Wants=network-online.target time-sync.target
+After=network-online.target time-sync.target
+
+[Service]
+Type=simple
+# Die LED-Leiste (NeoPixel an GPIO18) braucht auf vielen Pi-Modellen root-Rechte. Startest du bisher
+# mit "sudo uvicorn ...", hier "User=root" eintragen.
+User=pi
+WorkingDirectory=/home/pi/projects
+ExecStart=/usr/bin/python3 /home/pi/projects/main.py
+# Optional für HTTPS: in /home/pi/projects/kln.env eintragen
+#   KLN_TLS_CERT=/home/pi/certs/cert.pem
+#   KLN_TLS_KEY=/home/pi/certs/key.pem
+EnvironmentFile=-/home/pi/projects/kln.env
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=5
+# Beim Stoppen SIGTERM schicken: main.py fährt dann die Motoren herunter und gibt die GPIOs frei.
+KillSignal=SIGTERM
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target
