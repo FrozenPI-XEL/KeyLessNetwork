@@ -10,7 +10,7 @@ Eingegeben wird nur vom Admin, und nur einmal pro Locker.
 | Nutzer (Tab „Steuerung“) | `Frontend/src/app/(tabs)/controll.tsx`, `Frontend/src/lib/kln-api.ts` |
 | Admin (Tab „Admin“) | `Frontend/src/app/(tabs)/admin.tsx`, `Frontend/src/components/admin/` (`UsersTab`, `CodesTab`, `LockersTab`, `ui`) |
 | Anmeldung | `login.tsx`, `register.tsx`, `profile-setup.tsx`, `store/authStore.ts`, `hooks/supabase-client.ts`, `app/_layout.tsx` |
-| Datenbank | `Supabase/security_setup.sql` |
+| Datenbank | `Supabase/setup.sql` |
 | Pi | `Backend/main.py` |
 
 ## Ablauf

@@ -1,21 +1,34 @@
--- KeyLessNetwork: Sicherheits-Setup (EINMAL im SQL-Editor von Supabase ausführen)
+-- KeyLessNetwork: komplette Datenbank-Einrichtung (die EINZIGE SQL-Datei des Projekts)
+--
+-- Im SQL-Editor von Supabase komplett ausführen. Funktioniert für ein frisches Projekt genauso
+-- wie für ein bestehendes und darf beliebig oft laufen (Daten bleiben erhalten).
 --
 -- Was das macht:
---  * Echte Anmeldung über Supabase Auth statt "Benutzername + Passwort in der codes-Tabelle".
+--  * Legt alle Tabellen an (Einladungscodes, Profile, Admins, Locker, Schlüssel, Freigaben).
+--  * Echte Anmeldung über Supabase Auth (Passwörter liegen gehasht bei Supabase, nie in einer Tabelle).
 --  * Registrierung nur mit gültigem Einladungscode (prüft die Datenbank selbst, nicht die App).
 --  * Nur Admins dürfen Codes, Nutzer, Locker und Freigaben verwalten.
 --  * Freigegebene Nutzer bekommen nach dem Login automatisch Locker + Schlüssel.
---  * Alte, offene Policies (jeder darf alles lesen/ändern) werden entfernt.
---
--- Diese Datei EINMAL komplett im SQL-Editor ausführen, mehr ist nicht nötig. Sie kann auch mehrfach laufen.
+--  * Entfernt Reste der alten Version: offene Policies (jeder darf alles) und Klartext-Passwörter (codes.code2).
 --
 -- Voraussetzung in Supabase (Authentication > Sign In / Providers):
 --   "Allow new users to sign up" AN, Provider "Email" AN, "Confirm email" AUS.
 --   (Die App erzeugt intern E-Mail-Adressen aus Benutzernamen, es wird nie eine Mail verschickt.
 --    Die Registrierung ist trotz "sign up AN" durch den Einladungscode geschützt, siehe unten.)
 --
--- Am Ende der Datei zeigt eine Abfrage deinen Einladungscode. Damit registrierst du dich in der App.
+-- Am Ende zeigt eine Abfrage deine offenen Einladungscodes. Damit registrierst du dich in der App.
 -- Der ERSTE registrierte Nutzer wird automatisch Admin.
+
+-- ---------------------------------------------------------------------------
+-- Einladungscodes (bestand schon in der alten Version; in alten Projekten bleiben
+-- zusätzliche Spalten wie username/Role einfach stehen, die App nutzt sie nicht mehr)
+-- ---------------------------------------------------------------------------
+create table if not exists public.codes (
+  id bigint primary key generated always as identity,
+  code text not null unique,
+  genutzt boolean not null default false,
+  created_at timestamptz not null default now()
+);
 
 -- ---------------------------------------------------------------------------
 -- Migration: falls dieses Skript schon einmal unter dem alten Namen "cabinet"
@@ -244,15 +257,19 @@ create trigger kln_on_auth_user_created
 -- ---------------------------------------------------------------------------
 -- Zugriffsregeln (Row Level Security)
 -- ---------------------------------------------------------------------------
--- Alte offene Policies entfernen
-drop policy if exists "Allow public select codes" on public.codes;
-drop policy if exists "Allow public insert codes" on public.codes;
-drop policy if exists "Allow public update codes" on public.codes;
-drop policy if exists "Allow public delete codes" on public.codes;
-drop policy if exists "Allow public select pis" on public.raspberry_pis;
-drop policy if exists "Allow public insert pis" on public.raspberry_pis;
-drop policy if exists "Allow public update pis" on public.raspberry_pis;
-drop policy if exists "Allow public delete pis" on public.raspberry_pis;
+-- Alle alten Policies auf codes / raspberry_pis entfernen (z. B. "Allow public select codes",
+-- die jedem mit dem Anon-Key alles erlaubt haben). Eigene kln_*-Policies bleiben.
+do $$
+declare r record;
+begin
+  for r in
+    select policyname, tablename from pg_policies
+    where schemaname = 'public' and tablename in ('codes', 'raspberry_pis') and policyname not like 'kln\_%'
+  loop
+    execute format('drop policy %I on public.%I', r.policyname, r.tablename);
+  end loop;
+end
+$$;
 
 -- codes: nur Admins (die Registrierung läuft über den Trigger oben)
 alter table public.codes enable row level security;
@@ -260,11 +277,29 @@ drop policy if exists kln_codes_admin on public.codes;
 create policy kln_codes_admin on public.codes
   for all to authenticated using (public.kln_is_admin()) with check (public.kln_is_admin());
 
--- raspberry_pis (alte Tabelle): nur noch Admins; wird von der App nicht mehr benutzt
-alter table public.raspberry_pis enable row level security;
-drop policy if exists kln_pis_admin on public.raspberry_pis;
-create policy kln_pis_admin on public.raspberry_pis
-  for all to authenticated using (public.kln_is_admin()) with check (public.kln_is_admin());
+-- raspberry_pis: alte Tabelle, wird von der App nicht mehr benutzt. Falls vorhanden, nur noch für Admins.
+-- (Löschen, wenn nichts mehr darauf zugreift: drop table public.raspberry_pis;)
+do $$
+begin
+  if to_regclass('public.raspberry_pis') is not null then
+    alter table public.raspberry_pis enable row level security;
+    drop policy if exists kln_pis_admin on public.raspberry_pis;
+    create policy kln_pis_admin on public.raspberry_pis
+      for all to authenticated using (public.kln_is_admin()) with check (public.kln_is_admin());
+  end if;
+end
+$$;
+
+-- Alte Klartext-Passwörter aus der alten Version löschen (Spalte code2). Alte Konten funktionieren
+-- ohnehin nicht mehr, Nutzer registrieren sich neu mit Einladungscode.
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'codes' and column_name = 'code2') then
+    execute 'update public.codes set code2 = null where code2 is not null';
+  end if;
+end
+$$;
 
 drop policy if exists kln_profiles_select on public.kln_profiles;
 create policy kln_profiles_select on public.kln_profiles
@@ -300,10 +335,6 @@ insert into public.codes (code, genutzt)
 select upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8)), false
 where not exists (select 1 from public.kln_admins)
   and not exists (select 1 from public.codes where genutzt = false);
-
--- Optional, empfohlen: alte Klartext-Passwörter aus der codes-Tabelle entfernen. Alte Konten aus dem
--- alten Login funktionieren nicht mehr, Nutzer registrieren sich neu mit einem neuen Code.
---   update public.codes set code2 = null where code2 is not null;
 
 -- ERGEBNIS: deine offenen Einladungscodes (mit dem obersten in der App als Admin registrieren)
 select code as einladungscode, 'offen' as status

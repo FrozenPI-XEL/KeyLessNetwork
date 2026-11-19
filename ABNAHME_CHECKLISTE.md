@@ -20,7 +20,7 @@ Legende: **[Muss]** = vor Inbetriebnahme, **[Soll]** = vor Weitergabe an andere 
 ## B. Supabase
 
 - [ ] **[Muss]** Authentication → Sign In / Providers: „Allow new users to sign up" AN, „Email" AN, „Confirm email" AUS
-- [ ] **[Muss]** `Supabase/security_setup.sql` komplett einmal ausgeführt, ohne Fehlermeldung
+- [ ] **[Muss]** `Supabase/setup.sql` komplett einmal ausgeführt, ohne Fehlermeldung
 - [ ] **[Muss]** Am Ende der Ausführung erscheint eine Tabelle mit mindestens einem offenen Einladungscode
 - [ ] **[Muss]** Auf `auth.users` hängt nur der Trigger `kln_on_auth_user_created`:
   ```sql
@@ -195,7 +195,7 @@ Ein Kollege hatte eine ÄLTERE Version des Projekts (Stand: Klartext-Login über
 ```
 curl.exe "https://uyjzgvlrwljermckrkbm.supabase.co/rest/v1/codes?select=username,code2,genutzt" -H "apikey: <DEIN ANON KEY>" -H "Authorization: Bearer <DEIN ANON KEY>"
 ```
-Erwartetes Ergebnis NACH `Supabase/security_setup.sql`: ein Rechtefehler oder eine leere Liste, NICHT die Zeilen der `codes`-Tabelle. Falls doch Daten zurückkommen: `security_setup.sql` wurde noch nicht (vollständig) ausgeführt — im SQL-Editor erneut laufen lassen, dann denselben Befehl wiederholen.
+Erwartetes Ergebnis NACH `Supabase/setup.sql`: ein Rechtefehler oder eine leere Liste, NICHT die Zeilen der `codes`-Tabelle. Falls doch Daten zurückkommen: `Supabase/setup.sql` wurde noch nicht (vollständig) ausgeführt — im SQL-Editor erneut laufen lassen, dann denselben Befehl wiederholen.
 - [ ] **[Muss]** Obigen `curl`-Befehl selbst ausgeführt: Ergebnis ist ein Rechtefehler oder `[]`, keine Nutzerdaten
 
 ## Bekannte Einschränkungen
