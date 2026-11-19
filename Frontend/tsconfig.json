@@ -25,6 +25,26 @@
       ],
       "@src/assets/*": [
         "./assets/*"
+    "ignoreDeprecations": ["6.0"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ],
+      "@src/components/*": [
+        "src/components/*"
+      ],
+      "@src/app/*": [
+        "src/screens/*"
+      ],
+      "@src/hooks/*": [
+        "src/hooks/*"
+      ],
+      "@src/store/*": [
+        "src/store/*"
+      ],
+      "@src/assets/*": [
+        "assets/*"
       ]
     },
     "moduleResolution": "bundler",

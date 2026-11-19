@@ -1,0 +1,2 @@
+- ssh passwort für pi ändern und irgendwo notieren
+- Alle passwörter in die Entwicklerdokumentation notieren
