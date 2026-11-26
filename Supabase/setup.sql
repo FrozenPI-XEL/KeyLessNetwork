@@ -121,6 +121,25 @@ alter table public.kln_settings enable row level security;          -- bewusst o
 -- ---------------------------------------------------------------------------
 -- Hilfsfunktionen
 -- ---------------------------------------------------------------------------
+-- Alte Fassungen aus der "cabinet"-Zeit entfernen: Ihre Parameter hießen p_cabinet statt p_locker,
+-- und Parameter lassen sich mit "create or replace" nicht umbenennen (Fehler 42P13).
+-- CASCADE entfernt auch die Policies, die diese Funktionen benutzen; sie werden weiter unten neu angelegt.
+do $$
+declare r record;
+begin
+  for r in
+    select p.oid::regprocedure as fn
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname like 'kln\_%'
+      and exists (select 1 from unnest(coalesce(p.proargnames, '{}'::text[])) a where a like '%cabinet%')
+  loop
+    execute format('drop function %s cascade', r.fn);
+  end loop;
+end
+$$;
+
 create or replace function public.kln_is_admin()
 returns boolean language sql security definer set search_path = public stable as $$
   select exists (select 1 from public.kln_admins where user_id = auth.uid());
