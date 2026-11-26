@@ -6,3 +6,14 @@ __pycache__/
 Frontend/.expo-test-export/
 Frontend/.env*.local
 Backend/locker*.json
+
+# Editor-Einstellungen sind persönlich
+.vscode/
+
+# TLS: Zertifikate und Schlüssel der Pis und der CA nie ins Repo
+Backend/certs/
+*.key
+Backend/kln.env
+
+# Python-Testcache
+.pytest_cache/

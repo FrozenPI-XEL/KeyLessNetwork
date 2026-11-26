@@ -1,15 +1,28 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+// Hier liegt nur, ob/als wer man eingeloggt ist (Anzeige). Die eigentliche Sitzung samt Tokens
+// speichert der Supabase-Client verschlüsselt, siehe lib/secure-storage.ts.
 import { getItem, setItem, deleteItemAsync } from "expo-secure-store";
+import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils";
 import { supabase } from "../hooks/supabase-client";
 
+// Supabase Auth braucht eine E-Mail-Adresse. Die App erzeugt sie intern aus dem Benutzernamen
+// (nie sichtbar, es wird nie eine Mail verschickt, "Confirm email" ist in Supabase aus).
+// Hex-Kodierung, damit Umlaute und Sonderzeichen im Namen kein Problem sind.
+export const usernameToEmail = (username: string) =>
+  `${bytesToHex(utf8ToBytes(username.trim().toLowerCase()))}@kln-users.example.com`;
+
+export const MAX_USERNAME_LENGTH = 24;
+// Gleicher Wert gehört in Supabase unter Authentication > "Minimum password length" (serverseitige Prüfung).
+export const MIN_PASSWORD_LENGTH = 10;
 
 type UserState = {
   isLoggedIn: boolean;
   isadmin: boolean;
   username?: string;
-  logIn: (username: string) => Promise<void>;
-  logOut: () => void;
+  logIn: (username: string, password: string) => Promise<void>;
+  logOut: () => Promise<void>;
+  syncSession: () => Promise<void>;
 };
 
 export const useAuthStore = create(
@@ -19,44 +32,55 @@ export const useAuthStore = create(
       isadmin: false,
       username: undefined,
 
-      logIn: async (username: string) => {
-        try {
-          console.log("🔍 Login attempt with username:", username);
+      logIn: async (username: string, password: string) => {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: usernameToEmail(username),
+          password,
+        });
+        if (error || !data?.user) {
+          throw new Error("Benutzername oder Passwort falsch");
+        }
 
-
-          const { data, error } = await supabase
-            .from("codes")
-            .select("username, Role")
-            .eq("username", username)
-            .single();
-
-          if (error || !data) {
-            console.error("❌ User not found:", error);
-            throw new Error("User nicht gefunden");
-          }
-
-          console.log("✅ User found:", data);
+        const [profile, admin] = await Promise.all([
+          supabase
+            .from("kln_profiles")
+            .select("username")
+            .eq("user_id", data.user.id)
+            .maybeSingle(),
+          supabase.rpc("kln_is_admin"),
+        ]);
 
         set({
-         isLoggedIn: true,
-         username: data.username,
-         isadmin: data.Role === true,
-       });
+          isLoggedIn: true,
+          username: profile.data?.username ?? username.trim(),
+          // Reine Anzeige-Information. Die echte Prüfung macht die Datenbank (RLS) bei jeder Anfrage.
+          isadmin: admin.data === true,
+        });
+      },
 
-          console.log("✅ Login successful!");
-        } catch (err) {
-          console.error("❌ Login error:", err);
-          throw err;
+      logOut: async () => {
+        set(() => ({ isLoggedIn: false, isadmin: false, username: undefined }));
+        try {
+          await supabase.auth.signOut();
+        } catch {
+          /* lokal ist man bereits ausgeloggt */
         }
       },
 
-      logOut: () =>
-        set(() => ({
-          isLoggedIn: false,
-          isadmin: false,
-          username: undefined,
-        })),
-        
+      // Beim App-Start: Gibt es noch eine echte Sitzung? Wenn nicht, wird ausgeloggt.
+      syncSession: async () => {
+        const { data } = await supabase.auth.getSession();
+        if (!data.session) {
+          set(() => ({
+            isLoggedIn: false,
+            isadmin: false,
+            username: undefined,
+          }));
+          return;
+        }
+        const admin = await supabase.rpc("kln_is_admin");
+        set({ isadmin: admin.data === true });
+      },
     }),
     {
       name: "auth-store",

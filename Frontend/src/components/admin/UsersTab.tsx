@@ -8,9 +8,17 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../hooks/supabase-client";
-import { cardStyle, dangerButton, headingStyle, mutedText } from "./ui";
+import type { FunctionReturns } from "../../types/database";
+import {
+  cardStyle,
+  dangerButton,
+  headingStyle,
+  mutedText,
+  runAdminAction,
+  throwIfError,
+} from "./ui";
 
-type AdminUser = { user_id: string; username: string; is_admin: boolean };
+type AdminUser = FunctionReturns<"kln_list_users">[number];
 
 // Admin-Tab "Nutzer": registrierte Nutzer sehen, zu Admin machen oder löschen.
 // Neue Nutzer registrieren sich selbst mit einem Code (Tab "Codes").
@@ -18,15 +26,20 @@ export default function UsersTab() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    const { data, error } = await supabase.rpc("kln_list_users");
-    if (error) Alert.alert("Fehler", error.message);
-    else setUsers((data ?? []) as AdminUser[]);
-    setLoading(false);
-  }, []);
+  const load = useCallback(
+    () =>
+      runAdminAction(
+        async () => {
+          const result = await supabase.rpc("kln_list_users");
+          throwIfError(result);
+          setUsers(result.data ?? []);
+        },
+        () => setLoading(false),
+      ),
+    [],
+  );
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Daten beim Öffnen einmal laden
     load();
   }, [load]);
 
@@ -38,14 +51,16 @@ export default function UsersTab() {
         { text: "Abbrechen", style: "cancel" },
         {
           text: "OK",
-          onPress: async () => {
-            const { error } = await supabase.rpc("kln_set_admin", {
-              p_user: u.user_id,
-              p_admin: !u.is_admin,
-            });
-            if (error) Alert.alert("Fehler", error.message);
-            else load();
-          },
+          onPress: () =>
+            runAdminAction(async () => {
+              throwIfError(
+                await supabase.rpc("kln_set_admin", {
+                  p_user: u.user_id,
+                  p_admin: !u.is_admin,
+                }),
+              );
+              await load();
+            }),
         },
       ],
     );
@@ -60,13 +75,13 @@ export default function UsersTab() {
         {
           text: "Löschen",
           style: "destructive",
-          onPress: async () => {
-            const { error } = await supabase.rpc("kln_delete_user", {
-              p_user: u.user_id,
-            });
-            if (error) Alert.alert("Fehler", error.message);
-            else load();
-          },
+          onPress: () =>
+            runAdminAction(async () => {
+              throwIfError(
+                await supabase.rpc("kln_delete_user", { p_user: u.user_id }),
+              );
+              await load();
+            }),
         },
       ],
     );

@@ -36,3 +36,6 @@ yarn-error.*
 *.tsbuildinfo
 
 app-example
+
+# Öffentliches CA-Zertifikat der MakerLab-CA (für die App), siehe certs/README.md
+!certs/kln-ca.pem

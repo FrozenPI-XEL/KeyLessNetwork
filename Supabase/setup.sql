@@ -13,11 +13,17 @@
 --
 -- Voraussetzung in Supabase (Authentication > Sign In / Providers):
 --   "Allow new users to sign up" AN, Provider "Email" AN, "Confirm email" AUS.
+--   Authentication > Policies (bzw. "Password security"): "Minimum password length" auf 10 setzen,
+--   damit die Passwortregel der App auch serverseitig gilt.
 --   (Die App erzeugt intern E-Mail-Adressen aus Benutzernamen, es wird nie eine Mail verschickt.
 --    Die Registrierung ist trotz "sign up AN" durch den Einladungscode geschützt, siehe unten.)
 --
 -- Am Ende zeigt eine Abfrage deine offenen Einladungscodes. Damit registrierst du dich in der App.
--- Der ERSTE registrierte Nutzer wird automatisch Admin.
+-- Der ERSTE registrierte Nutzer wird automatisch Admin, und zwar nur ein einziges Mal pro Projekt
+-- (siehe kln_settings.admin_bootstrapped). Wird später der letzte Admin gelöscht, wird NIEMAND mehr
+-- automatisch Admin. Dann im SQL-Editor von Hand einen Admin setzen:
+--   insert into public.kln_admins (user_id)
+--   select user_id from public.kln_profiles where lower(username) = lower('DEIN_NAME');
 
 -- ---------------------------------------------------------------------------
 -- Einladungscodes (bestand schon in der alten Version; in alten Projekten bleiben
@@ -85,6 +91,20 @@ create table if not exists public.kln_locker_secrets (
   key_hex text not null check (key_hex ~ '^[0-9a-f]{64}$')
 );
 
+-- Einstellungen mit genau einer Zeile. admin_bootstrapped: Wurde der erste Admin schon automatisch
+-- vergeben? Danach nie wieder, auch wenn alle Admins gelöscht werden.
+create table if not exists public.kln_settings (
+  id boolean primary key default true check (id),
+  admin_bootstrapped boolean not null default false
+);
+insert into public.kln_settings (id) values (true) on conflict (id) do nothing;
+-- Bestehende Projekte: Gibt es schon einen Admin, ist die automatische Vergabe erledigt.
+update public.kln_settings set admin_bootstrapped = true
+where not admin_bootstrapped and exists (select 1 from public.kln_admins);
+
+-- Neue Locker laufen standardmäßig mit HTTPS (TLS ist Pflicht).
+alter table public.kln_lockers alter column https set default true;
+
 create table if not exists public.kln_locker_members (
   locker_id uuid not null references public.kln_lockers(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -96,6 +116,7 @@ alter table public.kln_admins enable row level security;            -- bewusst o
 alter table public.kln_lockers enable row level security;
 alter table public.kln_locker_secrets enable row level security;
 alter table public.kln_locker_members enable row level security;
+alter table public.kln_settings enable row level security;          -- bewusst ohne Policy: von außen unsichtbar
 
 -- ---------------------------------------------------------------------------
 -- Hilfsfunktionen
@@ -209,6 +230,7 @@ declare
   v_code text := upper(trim(coalesce(new.raw_user_meta_data->>'invite_code', '')));
   v_username text := trim(coalesce(new.raw_user_meta_data->>'username', ''));
   v_id bigint;
+  v_bootstrapped boolean;
 begin
   if v_username = '' or length(v_username) > 24 then
     raise exception 'invalid username';
@@ -219,9 +241,13 @@ begin
   end if;
   update public.codes set genutzt = true where id = v_id;
   insert into public.kln_profiles (user_id, username) values (new.id, v_username);
-  -- Der allererste Nutzer wird automatisch Admin (solange es noch keinen Admin gibt).
-  if not exists (select 1 from public.kln_admins) then
+  -- Der allererste Nutzer des Projekts wird automatisch Admin. Das passiert genau einmal:
+  -- Danach bleibt admin_bootstrapped für immer true, auch wenn alle Admins gelöscht werden.
+  -- (FOR UPDATE: zwei gleichzeitige Registrierungen können nicht beide Admin werden.)
+  select admin_bootstrapped into v_bootstrapped from public.kln_settings where id for update;
+  if not coalesce(v_bootstrapped, false) then
     insert into public.kln_admins (user_id) values (new.id);
+    update public.kln_settings set admin_bootstrapped = true where id;
   end if;
   return new;
 end;
@@ -328,12 +354,12 @@ create policy kln_members_admin on public.kln_locker_members
 
 -- ---------------------------------------------------------------------------
 -- Einladungscode für deine erste Registrierung
--- Gibt es noch keinen Admin und keinen offenen Code, wird ein zufälliger Code angelegt.
+-- Wurde noch nie ein Admin vergeben und gibt es keinen offenen Code, wird ein zufälliger Code angelegt.
 -- Der erste Nutzer, der sich damit registriert, wird automatisch Admin.
 -- ---------------------------------------------------------------------------
 insert into public.codes (code, genutzt)
 select upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8)), false
-where not exists (select 1 from public.kln_admins)
+where not (select admin_bootstrapped from public.kln_settings where id)
   and not exists (select 1 from public.codes where genutzt = false);
 
 -- ERGEBNIS: deine offenen Einladungscodes (mit dem obersten in der App als Admin registrieren)

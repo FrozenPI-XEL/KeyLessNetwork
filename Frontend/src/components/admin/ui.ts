@@ -1,4 +1,25 @@
-import type { TextStyle, ViewStyle } from "react-native";
+import { Alert, type TextStyle, type ViewStyle } from "react-native";
+import { errorMessage } from "../../lib/errors";
+
+// Führt eine Admin-Aktion aus und zeigt jeden Fehler an, auch geworfene (z. B. kein Netz).
+// supabase-js meldet Datenbankfehler meist als { error }, wirft aber bei Netzwerkproblemen.
+export async function runAdminAction(
+  action: () => Promise<void>,
+  done?: () => void,
+): Promise<void> {
+  try {
+    await action();
+  } catch (e: unknown) {
+    Alert.alert("Fehler", errorMessage(e));
+  } finally {
+    done?.();
+  }
+}
+
+// Wirft den Fehler eines Supabase-Ergebnisses als echten Error weiter.
+export function throwIfError(result: { error: { message: string } | null }) {
+  if (result.error) throw new Error(result.error.message);
+}
 
 // Gemeinsame Optik der Admin-Tabs (passend zum bisherigen Admin-Panel).
 export const cardStyle: ViewStyle = {

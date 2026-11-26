@@ -10,6 +10,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { getRandomBytes } from "expo-crypto";
 import { supabase } from "../../hooks/supabase-client";
+import type { Tables } from "../../types/database";
 import {
   cardStyle,
   dangerButton,
@@ -18,9 +19,11 @@ import {
   inputStyle,
   mutedText,
   primaryButton,
+  runAdminAction,
+  throwIfError,
 } from "./ui";
 
-type CodeItem = { id: number; code: string };
+type CodeItem = Pick<Tables<"codes">, "id" | "code">;
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 32 Zeichen, ohne leicht verwechselbare (0/O, 1/I)
 
@@ -37,19 +40,24 @@ export default function CodesTab() {
   const [newCode, setNewCode] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("codes")
-      .select("id, code")
-      .eq("genutzt", false)
-      .order("id", { ascending: false });
-    if (error) Alert.alert("Fehler", error.message);
-    else setCodes((data ?? []) as CodeItem[]);
-    setLoading(false);
-  }, []);
+  const load = useCallback(
+    () =>
+      runAdminAction(
+        async () => {
+          const result = await supabase
+            .from("codes")
+            .select("id, code")
+            .eq("genutzt", false)
+            .order("id", { ascending: false });
+          throwIfError(result);
+          setCodes(result.data ?? []);
+        },
+        () => setLoading(false),
+      ),
+    [],
+  );
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Daten beim Öffnen einmal laden
     load();
   }, [load]);
 
@@ -60,16 +68,17 @@ export default function CodesTab() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase
-      .from("codes")
-      .insert([{ code, genutzt: false }]);
-    if (error) Alert.alert("Fehler", error.message);
-    else {
-      setNewCode("");
-      await load();
-      Alert.alert("Erfolg", `Code ${code} hinzugefügt!`);
-    }
-    setLoading(false);
+    await runAdminAction(
+      async () => {
+        throwIfError(
+          await supabase.from("codes").insert([{ code, genutzt: false }]),
+        );
+        setNewCode("");
+        await load();
+        Alert.alert("Erfolg", `Code ${code} hinzugefügt!`);
+      },
+      () => setLoading(false),
+    );
   };
 
   const deleteCode = (id: number) => {
@@ -78,11 +87,11 @@ export default function CodesTab() {
       {
         text: "Löschen",
         style: "destructive",
-        onPress: async () => {
-          const { error } = await supabase.from("codes").delete().eq("id", id);
-          if (error) Alert.alert("Fehler", error.message);
-          else load();
-        },
+        onPress: () =>
+          runAdminAction(async () => {
+            throwIfError(await supabase.from("codes").delete().eq("id", id));
+            await load();
+          }),
       },
     ]);
   };
