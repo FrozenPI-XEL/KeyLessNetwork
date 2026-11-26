@@ -1,12 +1,120 @@
-# Abnahme-Checkliste KeyLessNetwork
+# KeyLessNetwork: Doku
 
-Haken setzen (`[x]`), wenn der Punkt geprüft ist. Bisher hat das noch niemand getestet: Der Code wurde geschrieben, aber nicht auf echter Hardware oder in einem laufenden Supabase-Projekt ausprobiert.
+1. [Sicherheit](#1-sicherheit)
+2. [Arbeitsablauf](#2-arbeitsablauf)
+3. [Abnahme-Checkliste](#3-abnahme-checkliste)
+
+Neuen Pi einrichten: siehe `Backend/PI_EINRICHTEN.md`. Schnittstelle App ↔ Pi: `Backend/FRONTEND_CHANGES.md`.
+
+## 1. Sicherheit
+
+### Geheimnisse gehören in einen Passwortmanager, nicht ins Repo
+
+Nichts aus dieser Liste wird committet, in Doku-Dateien geschrieben oder in Chats kopiert.
+Ablage: ein Passwortmanager (z. B. Bitwarden oder KeePassXC) bzw. für Dateien ein verschlüsseltes Backup.
+
+| Geheimnis | Wo es liegt | Wer es braucht |
+|---|---|---|
+| Supabase-Konto (Dashboard-Login, MFA aktiv) | Passwortmanager | Admin |
+| Secret Key `sb_secret_…` / `service_role` | nur im Supabase-Dashboard, **nirgends sonst** | niemand (wird nicht benutzt) |
+| Publishable Key `sb_publishable_…` (früher anon-Key) | `Frontend/.env.local` und `locker.json` auf dem Pi | App und Pi (ist öffentlich gedacht, Schutz macht RLS) |
+| `locker.json` (Locker-ID + Lockerschlüssel) | nur auf dem jeweiligen Pi, Rechte `600`, Backup verschlüsselt | Pi |
+| Setup-Code `KLN1-…` | nirgends speichern, nach Eingabe im Admin-Tab aus Terminal-Verlauf löschen | Admin, einmalig |
+| privater CA-Schlüssel `~/kln-ca/kln-ca.key` | PC des Admins + verschlüsseltes Backup, **nie** auf einem Pi | Admin (neue Pi-Zertifikate) |
+| `certs/server.key` des Pi | nur auf dem jeweiligen Pi, Rechte `600` | Pi |
+| App-Passwörter der Nutzer | gehasht bei Supabase Auth, niemand kennt sie | Nutzer selbst |
+
+Öffentlich und damit unkritisch: `Frontend/certs/kln-ca.pem` (CA-Zertifikat ohne Schlüssel).
+
+Wurde ein Geheimnis doch einmal committet, reicht Löschen nicht: Es steckt weiter in der Git-Historie.
+Dann den Schlüssel **ersetzen** (Supabase: neuen Key anlegen und den alten deaktivieren, Lockerschlüssel mit `python main.py rotate`)
+und die Datei zusätzlich aus der Historie entfernen.
+
+### Wie eine Anfrage an den Pi abgesichert ist
+
+1. **TLS** (Pflicht): Die Verbindung App ↔ Pi ist verschlüsselt. Der Pi lehnt unverschlüsseltes HTTP mit `426` ab.
+2. **HMAC-Signatur** mit dem Lockerschlüssel über Methode, Pfad, Zeitstempel, Nonce und Body-Hash.
+   Zeitstempel max. 30 s alt, jede Nonce nur einmal (Replay-Schutz). Auch die Antwort des Pi ist signiert.
+3. **Login-Token**: Der Pi fragt mit dem Supabase-Token des Nutzers bei Supabase nach (`kln_can_access`),
+   ob dieser Nutzer den Locker öffnen darf. Erst danach bewegt sich ein Motor.
+
+#### Warum TLS Pflicht ist
+
+Ohne TLS sieht jeder im selben WLAN das Login-Token im Klartext. Mit diesem Token (ca. 1 Stunde gültig)
+und dem öffentlichen Publishable Key kann er bei Supabase `kln_locker_secrets` lesen, also den Lockerschlüssel
+abholen und damit beliebige gültige Öffnen-Befehle signieren. Gehört das Token einem Admin, kann er sich
+per `kln_set_admin` sogar dauerhaft selbst zum Admin machen. Die Signatur allein schützt also nicht.
+
+#### Der Lockerschlüssel ist geteilt
+
+Jedes freigegebene Mitglied bekommt nach dem Login denselben Lockerschlüssel (nur im Arbeitsspeicher).
+Die eigentliche Rechteprüfung ist deshalb Schritt 3 (Token-Abfrage bei Supabase), nicht die Signatur.
+Wird eine Freigabe entzogen, wirkt das nach spätestens 60 s, der Schlüssel bleibt aber derselbe. Wer
+befürchtet, dass ein ehemaliges Mitglied den Schlüssel kopiert hat, erneuert ihn: `python main.py rotate`
+auf dem Pi und den neuen Setup-Code im Admin-Tab eingeben. Ohne gültiges Token nützt der Schlüssel allein nichts.
+
+#### Sitzung auf dem Handy
+
+Die Supabase-Sitzung (inkl. Refresh-Token) liegt verschlüsselt im iOS-Schlüsselbund bzw. Android Keystore
+(`expo-secure-store`, siehe `Frontend/src/lib/secure-storage.ts`). Nur in der Web-Version zum Testen am PC
+bleibt sie im `localStorage` des Browsers.
+
+### Sicherheitslücke gefunden?
+
+Bitte nicht als öffentliches GitHub-Issue melden, sondern direkt an den Projektverantwortlichen (Leon Ayvazian).
+
+## 2. Arbeitsablauf
+
+`main` ist das, was ausgeliefert wird. Deshalb kommt dort nichts direkt hin.
+
+### Branches und Pull Requests
+
+1. Für jede Änderung einen Branch: `git switch -c feature/kurze-beschreibung` (oder `fix/...`).
+2. Kleine Commits mit aussagekräftigen Nachrichten (siehe unten).
+3. Pushen und auf GitHub einen Pull Request nach `main` öffnen.
+4. Die CI (`.github/workflows/ci.yml`) muss grün sein: TypeScript, Lint, Backend-Tests.
+5. Erst dann mergen.
+
+### Mergen und Konflikte
+
+Ein Merge ist erst fertig, wenn die App wieder **baut und startet**:
+
+```bash
+git fetch origin
+git switch mein-branch
+git merge origin/main
+# Konflikte lösen: in jeder Datei die Blöcke <<<<<<< ======= >>>>>>> von Hand zusammenführen
+git grep -nE '^(<<<<<<<|=======|>>>>>>>)'      # darf nichts mehr finden
+cd Frontend && npm ci && npm run typecheck && npm run lint && npx expo start --clear
+cd ../Backend && python -m pytest
+git commit
+```
+
+Nie einen alten lokalen Stand einfach drübermergen. Wenn der lokale Ordner veraltet ist: frisch klonen
+oder `git fetch && git reset --hard origin/main` (vorher eigene, ungesicherte Änderungen sichern).
+
+### Commit-Messages
+
+Erste Zeile: was und warum, im Imperativ, max. ca. 70 Zeichen. Nicht „update“, „commit“ oder „raspi“.
+
+- gut: `Backend: LED-Animation mit eigenem Stop-Event pro Lauf`
+- gut: `Login: Passwort mindestens 10 Zeichen`
+- schlecht: `update`
+
+### Empfohlene GitHub-Einstellung
+
+Settings → Branches → Branch protection rule für `main`: „Require a pull request before merging“ und
+„Require status checks to pass“ (Check `CI`). Damit kann niemand mehr versehentlich direkt auf `main` pushen.
+
+## 3. Abnahme-Checkliste
+
+Nur für die Entwicklung, gehört nicht ins fertige Produkt. Haken setzen (`[x]`), wenn der Punkt geprüft ist.
 
 Legende: **[Muss]** = vor Inbetriebnahme, **[Soll]** = vor Weitergabe an andere Nutzer, **[Kann]** = später.
 
 ---
 
-## A. Projekt und Pakete
+### A. Projekt und Pakete
 
 - [x] **[Muss]** Im Ordner `Frontend`: `npm install` läuft ohne Fehler durch
 - [ ] **[Muss]** `npx expo install --fix` meldet nichts mehr
@@ -20,7 +128,7 @@ Legende: **[Muss]** = vor Inbetriebnahme, **[Soll]** = vor Weitergabe an andere 
 - [ ] **[Soll]** `npx expo install expo-system-ui` (sonst greift `userInterfaceStyle: "dark"` aus `app.json` unter Android nicht)
 - [ ] **[Soll]** GitHub-Actions-Lauf (`CI`) ist grün: TypeScript, Lint, Backend-Tests, SQL-Tests
 
-## B. Supabase
+### B. Supabase
 
 - [ ] **[Muss]** Authentication → Sign In / Providers: „Allow new users to sign up" AN, „Email" AN, „Confirm email" AUS
 - [ ] **[Muss]** Authentication → Passwort-Einstellungen: „Minimum password length" auf **10** (gleiche Regel wie in der App, aber serverseitig)
@@ -33,20 +141,21 @@ Legende: **[Muss]** = vor Inbetriebnahme, **[Soll]** = vor Weitergabe an andere 
   ```
 - [ ] **[Muss]** Mindestens ein Admin existiert: `select * from public.kln_admins;` liefert eine Zeile
 - [ ] **[Muss]** Automatische Admin-Vergabe ist verbraucht: `select admin_bootstrapped from public.kln_settings;` ergibt `true`
-- [ ] **[Muss]** Danach anon-Key rotieren (Project Settings → API → JWT-Keys/API-Keys) und überall eintragen: `Frontend/.env.local` und `locker.json` auf jedem Pi (`supabase_anon_key`). Der alte Key steckt noch in der Git-Historie (`.expo-test-export/`)
+- [ ] **[Muss]** Neuen Publishable Key anlegen (Settings → API Keys → Tab „Publishable and secret API keys“ → „Create new API keys“) und überall eintragen: `Frontend/.env.local` (`EXPO_PUBLIC_SUPABASE_ANON_KEY`) und `locker.json` auf jedem Pi (`supabase_anon_key`)
+- [ ] **[Muss]** Wenn App und alle Pis mit dem neuen Key laufen: Legacy-Keys `anon` und `service_role` deaktivieren (Settings → API Keys → Tab „Legacy API Keys“). Der alte anon-Key steckt noch in der Git-Historie und ist danach wertlos
 - [ ] **[Soll]** Für das Admin-Konto ist MFA aktiviert (Authentication → Multi-Factor)
 - [ ] **[Soll]** Alte Klartext-Passwörter entfernt (macht `setup.sql` jetzt automatisch). Prüfen: `select count(*) from public.codes where code2 is not null;` ergibt 0 (Fehler „column does not exist" ist auch in Ordnung)
-- [x] **[Soll]** In `Frontend/.env.local` steht nur die URL und der **anon**-Key, kein `service_role`-Key
+- [ ] **[Soll]** In `Frontend/.env.local` stehen nur die URL und der Publishable Key, kein Secret- oder `service_role`-Key
 - [ ] **[Kann]** Alte Tabelle `raspberry_pis` gelöscht, wenn nichts mehr darauf zugreift
 
-## C. Raspberry Pi / Backend
+### C. Raspberry Pi / Backend
 
 Gilt pro Pi. Für die Simulation am PC siehe Abschnitt G.
 
 - [ ] **[Muss]** Neue `Backend/main.py` liegt auf dem Pi, die alte ist gesichert
 - [ ] **[Muss]** Pakete vorhanden: `fastapi`, `uvicorn`
 - [ ] **[Muss]** `python3 main.py init --supabase-url … --anon-key … --locks N` ausgeführt (`N` = Schlösser dieser Platine: große Platine 4, kleine Platine 2)
-- [ ] **[Muss]** Es wurde der **anon**-Key benutzt, nicht der `service_role`-Key
+- [ ] **[Muss]** Es wurde der Publishable Key (bzw. anon-Key) benutzt, nie der Secret- oder `service_role`-Key
 - [ ] **[Muss]** Setup-Code kopiert, danach aus Terminal-Verlauf und Zwischenablage entfernt
 - [ ] **[Muss]** `locker.json` liegt neben `main.py`, Rechte nur für den Benutzer (`ls -l` zeigt `-rw-------`)
 - [ ] **[Muss]** TLS-Zertifikat liegt in `/home/pi/projects/certs/server.crt` und `server.key` (Abschnitt K)
@@ -62,7 +171,7 @@ Gilt pro Pi. Für die Simulation am PC siehe Abschnitt G.
 - [ ] **[Soll]** `locker.json` ist gesichert (ohne sie ist die Locker-ID weg)
 - [ ] **[Muss]** TLS aktiviert und im Admin-Tab beim Locker „HTTPS" gesetzt (Abschnitt K)
 
-## D. Registrierung und Login
+### D. Registrierung und Login
 
 - [ ] **[Muss]** Registrierung mit gültigem Einladungscode klappt, danach Weiterleitung zum Login
 - [ ] **[Muss]** Der erste registrierte Nutzer ist automatisch Admin, alle weiteren nicht (auch dann nicht, wenn alle Admins gelöscht wurden)
@@ -79,7 +188,7 @@ Gilt pro Pi. Für die Simulation am PC siehe Abschnitt G.
 - [ ] **[Muss]** Tab „Mein Account" zeigt Benutzername und Rolle, **kein** Passwort
 - [x] **[Soll]** Der Button „Test Login" auf der Startseite ist entfernt (er öffnet die App ohne Anmeldung)
 
-## E. Admin-Tab
+### E. Admin-Tab
 
 Nur als Admin eingeloggt.
 
@@ -94,7 +203,7 @@ Nur als Admin eingeloggt.
 - [ ] **[Soll]** Tastatur verdeckt keine Eingabefelder, Antippen von Knöpfen klappt auch mit offener Tastatur
 - [ ] **[Soll]** Ungültiger Setup-Code (zu kurz) wird abgelehnt, ebenso leerer Name und ungültiger Port
 
-## F. Steuerung (normaler Nutzer)
+### F. Steuerung (normaler Nutzer)
 
 Mit einem zweiten Konto ohne Admin-Rolle testen.
 
@@ -111,7 +220,7 @@ Mit einem zweiten Konto ohne Admin-Rolle testen.
 - [ ] **[Soll]** „‹ Alle Locker" führt zurück zur Liste
 - [ ] **[Soll]** Der Nutzer sieht nirgends einen Schlüssel oder eine Eingabe von Keys
 
-## G. Mehrere Locker
+### G. Mehrere Locker
 
 - [ ] **[Muss]** Zweiten Pi einrichten: auf **jedem** Pi läuft `init` einzeln, jeder bekommt seine eigene Locker-ID. `locker.json` darf nie von einem Pi auf einen anderen kopiert werden
 - [ ] **[Muss]** Beide Locker im Admin-Tab einzeln angelegt (je eigener Setup-Code, eigene IP)
@@ -134,7 +243,7 @@ Mit einem zweiten Konto ohne Admin-Rolle testen.
   Im Admin-Tab beide mit IP `localhost` und den Ports 8443 und 8444 anlegen, „HTTPS" aus.
   Unter Windows (Simulation) erlaubt der Server unverschlüsseltes HTTP automatisch, die App nur in Entwicklungs-Builds (`npx expo start`).
 
-## H. Sicherheit (Negativtests)
+### H. Sicherheit (Negativtests)
 
 - [ ] **[Muss]** Entzogene Freigabe: Nutzer kann nach spätestens einer Minute nicht mehr öffnen
 - [ ] **[Muss]** Nach `python main.py rotate` mit altem Schlüssel in der App: Zugriff scheitert (401), nach neuem Setup-Code im Admin-Tab klappt es wieder
@@ -153,7 +262,7 @@ Mit einem zweiten Konto ohne Admin-Rolle testen.
 - [ ] **[Soll]** Schlüsselhaltung geklärt: Wer Zugriff auf `locker.json` auf dem Pi oder auf das Supabase-Admin-Konto hat, hat Zugriff auf alle Locker
 - [ ] **[Kann]** Einladungscodes sind zufällig (Knopf „Zufälligen Code erzeugen") statt erratbar wie `ADMIN001`
 
-## I. Veröffentlichung (App-Build)
+### I. Veröffentlichung (App-Build)
 
 - [ ] **[Soll]** iOS: `NSLocalNetworkUsageDescription` und `NSAllowsLocalNetworking` stehen in `app.json` (sind eingetragen), im Build kommt die Abfrage „Lokales Netzwerk erlauben"
 - [ ] **[Muss]** Android: `Frontend/certs/kln-ca.pem` ist committet (sonst bricht der Build mit Hinweis ab). Das Plugin `plugins/withKlnCa.js` baut die CA in die App ein, HTTP bleibt in Release-Builds verboten. Nach `npx expo prebuild` prüfen: `android/app/src/main/res/xml/network_security_config.xml` existiert
@@ -161,22 +270,21 @@ Mit einem zweiten Konto ohne Admin-Rolle testen.
 - [ ] **[Soll]** Testbuild auf echtem iOS- und Android-Gerät geprüft, nicht nur in Expo Go
 - [ ] **[Kann]** App-Name, Icon, Bundle-ID und `scheme` angepasst. Erledigt: Name `KeyLessNetwork`, Scheme `keylessnetwork`, iOS/Android `com.frozenpixel.keylessnetwork`. Offen: eigenes Icon
 
-## J. Doku und Aufräumen
+### J. Doku und Aufräumen
 
 - [ ] **[Soll]** Es gibt eine README, die das neue System beschreibt (Anmeldung über Supabase Auth, Tabellen `kln_*`, `Backend/main.py`). Die frühere `docs/README.md` ist nicht mehr im Projekt und beschrieb noch den alten Login
-- [x] **[Soll]** `SECURITY.md` beschreibt, wo welche Geheimnisse liegen (Passwortmanager, nie im Repo) und warum TLS Pflicht ist. Die frühere Notiz „wichtig für security.md“ ist ersetzt
-- [x] **[Soll]** `CONTRIBUTING.md` beschreibt Branches, Pull Requests, Merge-Regel und Commit-Messages
-- [ ] **[Soll]** Auf GitHub Branch-Schutz für `main` aktiviert (siehe `CONTRIBUTING.md`)
+- [x] **[Soll]** Sicherheit (Abschnitt 1) und Arbeitsablauf (Abschnitt 2) sind dokumentiert, Kurzanleitung für neue Pis in `Backend/PI_EINRICHTEN.md`
+- [ ] **[Soll]** Auf GitHub Branch-Schutz für `main` aktiviert (siehe Abschnitt 2)
 - [ ] **[Soll]** `Backend/FRONTEND_CHANGES.md` stimmt mit dem Verhalten überein
 - [x] **[Kann]** Ungenutzte Dateien entfernt: `src/components/PiForm.tsx`, `src/store/userStore.ts`, `src/components/rollenauswahl.tsx`, `src/components/zeitauswahl.tsx`, Ordner `.expo-test-export`
 - [ ] **[Kann]** Lizenz und Credits laut `features.md` im Store-Eintrag vermerkt
 
 ---
 
-## K. TLS/HTTPS am Pi einrichten (Pflicht)
+### K. TLS/HTTPS am Pi einrichten (Pflicht)
 
 Ohne TLS kann jeder im WLAN das Login-Token mitlesen und damit bei Supabase den Lockerschlüssel abholen
-(Details in `SECURITY.md`). Deshalb startet der Pi ohne Zertifikat nicht mehr, lehnt unverschlüsseltes HTTP
+(Details in Abschnitt 1). Deshalb startet der Pi ohne Zertifikat nicht mehr, lehnt unverschlüsseltes HTTP
 mit `426` ab, und die App spricht in Release-Builds nur noch HTTPS.
 
 Gewählter Weg: **eigene MakerLab-CA**. Kostenlos, keine Domain und keine Portfreigabe nötig.
@@ -201,33 +309,16 @@ Das Pi-Zertifikat läuft nach 825 Tagen ab (`openssl x509 -in server.crt -noout 
 - [ ] **[Muss]** Android- und iOS-Gerät verbinden sich per HTTPS, Status „Online"
 - [ ] **[Muss]** Feste IP für jeden Pi im Router eingetragen
 
-## L. Review der Mitarbeiter-Korrektur (alte Version) — Status
+### L. Offene Punkte aus den Reviews
 
-Ein Kollege hatte eine ÄLTERE Version des Projekts (Stand: Klartext-Login über `codes`-Tabelle, Server ohne jede Authentifizierung) mit Kommentaren durchgesehen (`server.py`, `create_tables.sql`, `docs/README.md`, plus `exploit-demo.sh` als Beweis). Abgleich mit dem aktuellen Stand:
+- [ ] **[Muss]** Exploit-Test aus dem Review wiederholt (wie in H): Abfrage von `codes` mit dem öffentlichen Key liefert einen Rechtefehler oder `[]`, keine Daten
+- Alter anon-Key in der Git-Historie: wird durch das Deaktivieren der Legacy-Keys wertlos (Abschnitt B). Die Historie wird bewusst nicht umgeschrieben
+- Motorzustand nur im Arbeitsspeicher: bewusst offen, siehe „Bekannte Einschränkungen“
 
-| Punkt des Reviews | Betrifft alte Version | Aktueller Stand |
-|---|---|---|
-| Server ohne Authentifizierung, jeder öffnet per `curl` | `server.py` | ✅ behoben — HMAC-Signatur + Supabase-Login-Token, siehe Abschnitt oben |
-| Passwort im Klartext in `code2` | `create_tables.sql` | ✅ behoben — echte Supabase Auth (gehashte Passwörter, Supabase übernimmt das) |
-| RLS-Policies mit `USING (true)` — jeder anonyme Client darf alles lesen/ändern | `create_tables.sql` | ✅ behoben — Policies binden an `auth.uid()` / `kln_is_admin()` / `kln_can_access()` |
-| Anon-Key + Daten im mitcommitteten Web-Build geleakt | `Frontend/.expo-test-export/` | ⚠️ Ordner wieder entfernt (kam durch den Merge `012a24d` zurück) und in `.gitignore`. Steckt aber wieder in der Historie (alte Commits doppelt). **Offen:** anon-Key rotieren (Abschnitt B) und Historie bereinigen + Force-Push |
-| Kein `GPIO.cleanup()` / Shutdown-Handler, Pins bleiben bei Prozessende undefiniert | `server.py` | ✅ jetzt behoben — `atexit`/`SIGTERM`/`SIGINT`-Handler in `Backend/main.py` fahren die Motoren runter und rufen `GPIO.cleanup()` |
-| Keine `requirements.txt`, keine Start-Doku | `server.py` | ✅ jetzt behoben — `Backend/requirements.txt` ergänzt |
-| Motor-Zustand nur im RAM, nach Neustart „zu" unabhängig vom echten Zustand | `server.py` | ⚠️ weiterhin so (siehe „Bekannte Einschränkungen" unten) — bewusst nicht behoben, da ohne Endschalter am Motor nicht zuverlässig lösbar; nach jedem Neustart den physischen Zustand einmal prüfen |
-| Race Condition bei `stop_animation`/`animation_thread` ohne eigenes Lock, blockierender `time.sleep()` im Request-Handler | `server.py` | ✅ behoben — jede LED-Animation hat ihr eigenes `threading.Event` (`LedAnimation` in `main.py`), `join()` mit Zeitlimit. Ein verlorenes Stop-Signal ist nicht mehr möglich, Test in `Backend/tests/test_main.py`. Motorlaufzeit über `KLN_MOTOR_SECONDS` einstellbar |
-| Doku driftet vom Code ab (`docs/README.md` beschrieb nicht existierende Dateien) | `docs/README.md` | ✅ überholt — diese Datei existiert im aktuellen Projekt nicht mehr, Doku liegt jetzt aktuell in `Backend/FRONTEND_CHANGES.md` und dieser Checkliste |
-
-**Exploit-Test (`exploit-demo.sh`):** Das Skript liest mit dem öffentlichen `anon`-Key ohne Login die `codes`-Tabelle aus (`GET /rest/v1/codes?select=username,code2,Role,genutzt`) und nutzte dafür die alte `USING (true)`-Policy. Ein Testlauf von hier aus war nicht möglich — der Netzwerkzugriff auf `*.supabase.co` ist sowohl in der Cloud-Sandbox als auch im Gerätezugriff durch das Konto-Whitelisting blockiert (bewusste Absicherung, kein Fehler). Zur eigenen Verifizierung in PowerShell/Terminal (rein lesend, ungefährlich):
-```
-curl.exe "https://uyjzgvlrwljermckrkbm.supabase.co/rest/v1/codes?select=username,code2,genutzt" -H "apikey: <DEIN ANON KEY>" -H "Authorization: Bearer <DEIN ANON KEY>"
-```
-Erwartetes Ergebnis NACH `Supabase/setup.sql`: ein Rechtefehler oder eine leere Liste, NICHT die Zeilen der `codes`-Tabelle. Falls doch Daten zurückkommen: `Supabase/setup.sql` wurde noch nicht (vollständig) ausgeführt — im SQL-Editor erneut laufen lassen, dann denselben Befehl wiederholen.
-- [ ] **[Muss]** Obigen `curl`-Befehl selbst ausgeführt: Ergebnis ist ein Rechtefehler oder `[]`, keine Nutzerdaten
-
-## Bekannte Einschränkungen
+### Bekannte Einschränkungen
 
 - Der Pi braucht Internet. Fällt Supabase aus, öffnet er nichts (bewusst sicher).
 - Ohne TLS wäre die ganze Absicherung im WLAN abhörbar: Wer das Login-Token mitliest, kann damit bei Supabase den Lockerschlüssel abholen und beliebige Öffnen-Befehle signieren, mit einem Admin-Token sich sogar selbst zum Admin machen. Deshalb ist TLS Pflicht (Abschnitt K) und HTTP wird abgelehnt.
-- Der Lockerschlüssel ist für alle Mitglieder eines Lockers gleich. Die Rechteprüfung macht Supabase anhand des Login-Tokens. Nach dem Entziehen einer Freigabe bei Verdacht `python main.py rotate` (siehe `SECURITY.md`).
+- Der Lockerschlüssel ist für alle Mitglieder eines Lockers gleich. Die Rechteprüfung macht Supabase anhand des Login-Tokens. Nach dem Entziehen einer Freigabe bei Verdacht `python main.py rotate` (siehe Abschnitt 1).
 - Schloss-Zustände (offen/zu) merkt sich der Pi nur im Arbeitsspeicher. Nach einem Neustart stehen alle Schlösser auf „zu", auch wenn sie physisch offen sind.
 - Es gibt keine Passwort-Zurücksetzen-Funktion. Ein vergessenes Passwort kann nur ein Admin durch Löschen des Nutzers und neue Registrierung beheben.
