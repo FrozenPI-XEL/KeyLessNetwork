@@ -620,6 +620,6 @@ if __name__ == "__main__":
     else:
         sys.exit(
             f"Kein TLS-Zertifikat gefunden ({cert}, {key}).\n"
-            "Zertifikat erzeugen: siehe Backend/deploy/make-certs.sh und ABNAHME_CHECKLISTE.md, Abschnitt K.\n"
+            "Zertifikat erzeugen: siehe Backend/deploy/make-certs.sh und DOKU.md, Abschnitt 3 K.\n"
             "Nur zum Entwickeln ohne TLS: KLN_ALLOW_HTTP=1 python main.py"
         )

@@ -6,7 +6,7 @@
 // Unverschlüsseltes HTTP bleibt in Release-Builds verboten. Debug-Builds dürfen HTTP (Metro, Simulation).
 //
 // iOS: Dort gibt es keine App-eigene Vertrauensliste. Die CA wird einmal als Profil installiert,
-// siehe ABNAHME_CHECKLISTE.md, Abschnitt K.
+// siehe DOKU.md, Abschnitt 3 K.
 const fs = require("fs");
 const path = require("path");
 const {
