@@ -5,6 +5,7 @@ import { hmac } from "@noble/hashes/hmac";
 import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex, hexToBytes, utf8ToBytes } from "@noble/hashes/utils";
 import { supabase } from "../hooks/supabase-client";
+import { errorMessage } from "./errors";
 
 export type Locker = {
   id: string; // Locker-ID (UUID, kommt vom Pi)
@@ -15,7 +16,18 @@ export type Locker = {
   keyHex: string; // Lockerschlüssel: nur im Arbeitsspeicher, wird nie auf dem Handy gespeichert
 };
 
-export type ApiResult = { ok: true; data: any } | { ok: false; err: string };
+// Antworten des Pi (Backend/main.py)
+export type PiResponse = {
+  status?: string;
+  motors?: number[];
+  success?: boolean;
+  error?: string;
+  lock?: number;
+  state?: "open" | "closed";
+};
+
+export type ApiResult =
+  { ok: true; data: PiResponse } | { ok: false; err: string; status?: number };
 
 const MAX_CLOCK_SKEW_SECONDS = 30;
 
@@ -33,18 +45,23 @@ export async function loadLockers(): Promise<Locker[]> {
   if (secrets.error) throw new Error(secrets.error.message);
 
   const keys = new Map<string, string>(
-    (secrets.data ?? []).map((s: any) => [s.locker_id, s.key_hex]),
+    (secrets.data ?? []).map((s) => [s.locker_id, s.key_hex]),
   );
-  return (cabs.data ?? [])
-    .filter((c: any) => keys.has(c.id))
-    .map((c: any) => ({
-      id: c.id,
-      name: c.name,
-      host: c.host,
-      port: c.port,
-      https: c.https,
-      keyHex: keys.get(c.id) as string,
-    }));
+  return (cabs.data ?? []).flatMap((c) => {
+    const keyHex = keys.get(c.id);
+    return keyHex
+      ? [
+          {
+            id: c.id,
+            name: c.name,
+            host: c.host,
+            port: c.port,
+            https: c.https,
+            keyHex,
+          },
+        ]
+      : [];
+  });
 }
 
 const constantTimeEqual = (a: string, b: string) => {
@@ -59,8 +76,17 @@ export const apiCall = async (
   cab: Locker,
   path: string,
   method: "GET" | "POST" = "GET",
-  body?: any,
+  body?: Record<string, unknown>,
 ): Promise<ApiResult> => {
+  // TLS ist Pflicht: Ohne HTTPS könnte jeder im WLAN das Login-Token mitlesen und damit bei Supabase
+  // den Lockerschlüssel abholen. Unverschlüsselt nur in Entwicklungs-Builds (Simulation am PC).
+  if (!cab.https && !__DEV__) {
+    return {
+      ok: false,
+      err: "Dieser Locker ist ohne HTTPS eingetragen. Ein Admin muss TLS am Pi einrichten und den Locker auf HTTPS umstellen.",
+    };
+  }
+
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
   if (!token) return { ok: false, err: "Nicht eingeloggt." };
@@ -107,23 +133,37 @@ export const apiCall = async (
     if (res.status === 401) {
       return {
         ok: false,
+        status: 401,
         err: "Kein Zugriff. Freigabe, Login oder Uhrzeit (max. 30 s Abweichung) prüfen.",
+      };
+    }
+    if (res.status === 426) {
+      return {
+        ok: false,
+        status: 426,
+        err: "Der Pi verlangt HTTPS. Ein Admin muss den Locker im Admin-Tab auf HTTPS umstellen.",
       };
     }
     if (res.status === 429) {
       return {
         ok: false,
+        status: 429,
         err: "Zu viele Fehlversuche, der Pi hat dich 5 Minuten gesperrt.",
       };
     }
     if (res.status === 503) {
       return {
         ok: false,
+        status: 503,
         err: "Der Pi erreicht den Anmeldedienst nicht (Internet am Pi prüfen).",
       };
     }
     if (!res.ok) {
-      return { ok: false, err: `Serverfehler (HTTP ${res.status})` };
+      return {
+        ok: false,
+        status: res.status,
+        err: `Serverfehler (HTTP ${res.status})`,
+      };
     }
 
     // Antwort des Pi prüfen: nur mit gültiger Signatur wird sie akzeptiert.
@@ -153,17 +193,17 @@ export const apiCall = async (
       };
     }
 
-    let data: any = {};
+    let data: PiResponse = {};
     try {
-      data = JSON.parse(text);
+      data = JSON.parse(text) as PiResponse;
     } catch {
       /* leere Antwort */
     }
     return { ok: true, data };
-  } catch (e: any) {
-    if (e?.name === "AbortError")
+  } catch (e: unknown) {
+    if (e instanceof Error && e.name === "AbortError")
       return { ok: false, err: "Zeitüberschreitung" };
-    return { ok: false, err: e?.message || String(e) };
+    return { ok: false, err: errorMessage(e) };
   } finally {
     clearTimeout(timer);
   }

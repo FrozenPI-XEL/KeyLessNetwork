@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
-import { View, Text, TextInput, Pressable, Animated } from "react-native";
+import { useState } from "react";
+import { View, Text, Pressable } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../store/authStore";
+import FloatingInput from "../components/FloatingInput";
 
 type FormData = {
   username: string;
@@ -28,7 +29,6 @@ export default function LoginForm() {
   const [isLocked, setIsLocked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sichtbar, setSichtbar] = useState(true);
 
   const onSubmit = async (data: FormData) => {
     setError(null);
@@ -41,9 +41,9 @@ export default function LoginForm() {
     } catch {
       setIsLocked(false);
       setError("Benutzername oder Passwort falsch!");
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   return (
@@ -77,7 +77,8 @@ export default function LoginForm() {
             icon="person"
             value={value}
             onChangeText={onChange}
-            secureTextEntry={false}
+            textContentType="username"
+            autoComplete="username"
           />
         )}
       />
@@ -91,34 +92,15 @@ export default function LoginForm() {
         name="password"
         rules={{ required: "Passwort ist erforderlich" }}
         render={({ field: { onChange, value } }) => (
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              width: "100%",
-            }}
-          >
-            <View style={{ flex: 1 }}>
-              <FloatingInput
-                label="Passwort"
-                icon="lock-closed"
-                value={value}
-                onChangeText={onChange}
-                secureTextEntry={sichtbar}
-              />
-            </View>
-
-            <Pressable
-              onPress={() => setSichtbar(!sichtbar)}
-              style={{ position: "absolute", right: 16, top: 12 }}
-            >
-              <Ionicons
-                name={sichtbar ? "eye-off" : "eye"}
-                size={22}
-                color="gray"
-              />
-            </Pressable>
-          </View>
+          <FloatingInput
+            label="Passwort"
+            icon="lock-closed"
+            value={value}
+            onChangeText={onChange}
+            secure
+            textContentType="password"
+            autoComplete="password"
+          />
         )}
       />
 
@@ -173,74 +155,3 @@ export default function LoginForm() {
     </View>
   );
 }
-
-const FloatingInput = ({
-  label,
-  value,
-  onChangeText,
-  secureTextEntry,
-  icon,
-}: {
-  label: string;
-  value?: string;
-  onChangeText: (text: string) => void;
-  secureTextEntry?: boolean;
-  icon: keyof typeof Ionicons.glyphMap;
-}) => {
-  const [isFocused, setIsFocused] = useState(false);
-  const animatedValue = useState(() => new Animated.Value(value ? 1 : 0))[0];
-
-  useEffect(() => {
-    Animated.timing(animatedValue, {
-      toValue: isFocused || value ? 1 : 0,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
-  }, [animatedValue, isFocused, value]);
-
-  const labelStyle = {
-    position: "absolute" as const,
-    left: 40,
-    top: animatedValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: [18, -8],
-    }),
-    fontSize: animatedValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: [16, 12],
-    }),
-    color: "#aaa",
-  };
-
-  return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        borderBottomWidth: 2,
-        borderBottomColor: "#475569",
-        marginBottom: 24,
-        width: "100%",
-        position: "relative",
-        paddingBottom: 4,
-      }}
-    >
-      <Ionicons name={icon} size={20} color="#666" style={{ marginRight: 8 }} />
-
-      <View style={{ flex: 1 }}>
-        <Animated.Text style={labelStyle}>{label}</Animated.Text>
-
-        <TextInput
-          style={{ height: 40, fontSize: 20, color: "white" }}
-          value={value}
-          secureTextEntry={secureTextEntry}
-          onChangeText={onChangeText}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-      </View>
-    </View>
-  );
-};

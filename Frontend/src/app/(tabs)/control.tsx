@@ -11,12 +11,17 @@ import {
 } from "react-native";
 import { supabase } from "../../hooks/supabase-client";
 import { apiCall, loadLockers, type Locker } from "../../lib/kln-api";
+import { errorMessage } from "../../lib/errors";
 
 // Tab "Steuerung" (Nutzer-Seite): freigegebene Locker suchen und steuern.
 // Locker anlegen, Nutzer freigeben usw. passiert ausschließlich im Admin-Tab.
 
 const FALLBACK_LOCKS = [1, 2, 3, 4];
 const COOLDOWN_MS = 1000; // Pause nach jeder Aktion, damit niemand die Knöpfe spammen kann
+const PING_INTERVAL_MS = 10000;
+// Bei diesen Antworten wird nicht automatisch weiter gepingt: Jede abgelehnte Anfrage zählt am Pi als
+// Fehlversuch, nach 5 davon sperrt er die Adresse für 5 Minuten (bei 10-s-Ping also nach ca. 50 s).
+const STOP_PING_STATUS = new Set([401, 426, 429]);
 
 const inputStyle = {
   backgroundColor: "#1e293b",
@@ -35,31 +40,48 @@ function ControlView({ cab, onBack }: { cab: Locker; onBack: () => void }) {
   const [online, setOnline] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [locks, setLocks] = useState<number[]>(FALLBACK_LOCKS);
+  const [pingPaused, setPingPaused] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const stopPing = () => {
+      if (timer) clearInterval(timer);
+      timer = null;
+    };
     const ping = async () => {
       const r = await apiCall(cab, "/health");
       if (cancelled) return;
       if (r.ok) {
         setOnline(true);
         setLastError(null);
-        if (Array.isArray(r.data?.motors) && r.data.motors.length > 0) {
-          setLocks(r.data.motors as number[]);
+        if (Array.isArray(r.data.motors) && r.data.motors.length > 0) {
+          setLocks(r.data.motors);
         }
       } else {
         setOnline(false);
         setLastError(r.err);
+        if (r.status !== undefined && STOP_PING_STATUS.has(r.status)) {
+          stopPing();
+          setPingPaused(true);
+        }
       }
       setLoading(false);
     };
     ping();
-    const id = setInterval(ping, 10000);
+    timer = setInterval(ping, PING_INTERVAL_MS);
     return () => {
       cancelled = true;
-      clearInterval(id);
+      stopPing();
     };
-  }, [cab]);
+  }, [cab, retryCount]);
+
+  const retry = () => {
+    setPingPaused(false);
+    setLoading(true);
+    setRetryCount((n) => n + 1);
+  };
 
   // Solange eine Aktion läuft (und kurz danach), sind ALLE Knöpfe gesperrt. Der Pi arbeitet die Schlösser
   // ohnehin nacheinander ab. Die Ref blockt auch Doppeltipps, bevor der State neu gezeichnet ist.
@@ -144,6 +166,22 @@ function ControlView({ cab, onBack }: { cab: Locker; onBack: () => void }) {
         <Text style={{ color: "white", fontSize: 16, marginBottom: 20 }}>
           {online ? "Online" : lastError ? `Fehler: ${lastError}` : "Offline"}
         </Text>
+
+        {pingPaused && (
+          <TouchableOpacity
+            onPress={retry}
+            style={{
+              backgroundColor: "#475569",
+              paddingVertical: 10,
+              borderRadius: 10,
+              marginBottom: 20,
+            }}
+          >
+            <Text style={{ color: "white", textAlign: "center" }}>
+              Verbindung pausiert, erneut versuchen
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {locks.map((lockNumber) => (
           <View key={lockNumber} style={{ marginBottom: 16 }}>
@@ -231,8 +269,8 @@ export default function ControlScreen() {
     setLoggedIn(true);
     try {
       setLockers(await loadLockers());
-    } catch (e: any) {
-      setLoadError(e?.message ?? String(e));
+    } catch (e: unknown) {
+      setLoadError(errorMessage(e));
     }
     setReady(true);
   }, []);

@@ -11,6 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { supabase } from "../../hooks/supabase-client";
+import type { FunctionReturns, Tables } from "../../types/database";
 import {
   cardStyle,
   dangerButton,
@@ -20,16 +21,15 @@ import {
   labelStyle,
   mutedText,
   primaryButton,
+  runAdminAction,
+  throwIfError,
 } from "./ui";
 
-type LockerRow = {
-  id: string;
-  name: string;
-  host: string;
-  port: number;
-  https: boolean;
-};
-type AdminUser = { user_id: string; username: string; is_admin: boolean };
+type LockerRow = Pick<
+  Tables<"kln_lockers">,
+  "id" | "name" | "host" | "port" | "https"
+>;
+type AdminUser = FunctionReturns<"kln_list_users">[number];
 
 // Der Setup-Code kommt vom Pi (python main.py init): "KLN1-" + 96 Hex-Zeichen = Locker-ID (32) + Schlüssel (64).
 function parseSetupCode(input: string): { id: string; keyHex: string } | null {
@@ -56,45 +56,48 @@ function MembersPanel({
   const [allowed, setAllowed] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    const [u, m] = await Promise.all([
-      supabase.rpc("kln_list_users"),
-      supabase
-        .from("kln_locker_members")
-        .select("user_id")
-        .eq("locker_id", cab.id),
-    ]);
-    if (u.error) Alert.alert("Fehler", u.error.message);
-    else setUsers((u.data ?? []) as AdminUser[]);
-    if (m.error) Alert.alert("Fehler", m.error.message);
-    else
-      setAllowed(new Set((m.data ?? []).map((r: any) => r.user_id as string)));
-    setLoading(false);
-  }, [cab.id]);
+  const load = useCallback(
+    () =>
+      runAdminAction(
+        async () => {
+          const [u, m] = await Promise.all([
+            supabase.rpc("kln_list_users"),
+            supabase
+              .from("kln_locker_members")
+              .select("user_id")
+              .eq("locker_id", cab.id),
+          ]);
+          throwIfError(u);
+          throwIfError(m);
+          setUsers(u.data ?? []);
+          setAllowed(new Set((m.data ?? []).map((r) => r.user_id)));
+        },
+        () => setLoading(false),
+      ),
+    [cab.id],
+  );
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Daten beim Öffnen einmal laden
     load();
   }, [load]);
 
-  const toggle = async (u: AdminUser) => {
-    const next = !allowed.has(u.user_id);
-    const { error } = await supabase.rpc("kln_set_member", {
-      p_locker: cab.id,
-      p_user: u.user_id,
-      p_allowed: next,
+  const toggle = (u: AdminUser) =>
+    runAdminAction(async () => {
+      const next = !allowed.has(u.user_id);
+      throwIfError(
+        await supabase.rpc("kln_set_member", {
+          p_locker: cab.id,
+          p_user: u.user_id,
+          p_allowed: next,
+        }),
+      );
+      setAllowed((prev) => {
+        const copy = new Set(prev);
+        if (next) copy.add(u.user_id);
+        else copy.delete(u.user_id);
+        return copy;
+      });
     });
-    if (error) {
-      Alert.alert("Fehler", error.message);
-      return;
-    }
-    setAllowed((prev) => {
-      const copy = new Set(prev);
-      if (next) copy.add(u.user_id);
-      else copy.delete(u.user_id);
-      return copy;
-    });
-  };
 
   return (
     <View>
@@ -174,21 +177,26 @@ export default function LockersTab() {
   const [name, setName] = useState("");
   const [host, setHost] = useState("");
   const [port, setPort] = useState("8443");
-  const [https, setHttps] = useState(false);
+  const [https, setHttps] = useState(true); // TLS ist Pflicht
   const [code, setCode] = useState("");
 
-  const load = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("kln_lockers")
-      .select("id,name,host,port,https")
-      .order("name");
-    if (error) Alert.alert("Fehler", error.message);
-    else setLockers((data ?? []) as LockerRow[]);
-    setLoading(false);
-  }, []);
+  const load = useCallback(
+    () =>
+      runAdminAction(
+        async () => {
+          const result = await supabase
+            .from("kln_lockers")
+            .select("id,name,host,port,https")
+            .order("name");
+          throwIfError(result);
+          setLockers(result.data ?? []);
+        },
+        () => setLoading(false),
+      ),
+    [],
+  );
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Daten beim Öffnen einmal laden
     load();
   }, [load]);
 
@@ -211,38 +219,42 @@ export default function LockersTab() {
       return;
     }
     setLoading(true);
-    try {
-      const c = await supabase.from("kln_lockers").upsert({
-        id: parsed.id,
-        name: name.trim(),
-        host: host.trim(),
-        port: portNum,
-        https,
-      });
-      if (c.error) throw new Error(c.error.message);
-      const s = await supabase
-        .from("kln_locker_secrets")
-        .upsert({ locker_id: parsed.id, key_hex: parsed.keyHex });
-      if (s.error) throw new Error(s.error.message);
-      setName("");
-      setHost("");
-      setCode("");
-      await load();
-      Alert.alert(
-        "Erfolg",
-        "Locker gespeichert. Jetzt unter „Zugriff“ Nutzer freigeben.",
-      );
-    } catch (e: any) {
-      Alert.alert("Fehler", e?.message || String(e));
-    }
-    setLoading(false);
+    await runAdminAction(
+      async () => {
+        throwIfError(
+          await supabase.from("kln_lockers").upsert({
+            id: parsed.id,
+            name: name.trim(),
+            host: host.trim(),
+            port: portNum,
+            https,
+          }),
+        );
+        throwIfError(
+          await supabase
+            .from("kln_locker_secrets")
+            .upsert({ locker_id: parsed.id, key_hex: parsed.keyHex }),
+        );
+        setName("");
+        setHost("");
+        setCode("");
+        await load();
+        Alert.alert(
+          "Erfolg",
+          https
+            ? "Locker gespeichert. Jetzt unter „Zugriff“ Nutzer freigeben."
+            : "Locker OHNE HTTPS gespeichert. Das funktioniert nur in Entwicklungs-Builds. Für den echten Betrieb TLS am Pi einrichten und HTTPS anhaken.",
+        );
+      },
+      () => setLoading(false),
+    );
   };
 
   const parsedCode = parseSetupCode(code);
 
   // Setup-Code aus der Zwischenablage holen, ohne dass die Tastatur geöffnet werden muss.
-  const pasteCode = async () => {
-    try {
+  const pasteCode = () =>
+    runAdminAction(async () => {
       const text = await Clipboard.getStringAsync();
       if (!text.trim()) {
         Alert.alert(
@@ -253,10 +265,7 @@ export default function LockersTab() {
       }
       setCode(text.trim());
       Keyboard.dismiss();
-    } catch (e: any) {
-      Alert.alert("Fehler", e?.message || String(e));
-    }
-  };
+    });
 
   const deleteLocker = (cab: LockerRow) => {
     Alert.alert(
@@ -267,14 +276,13 @@ export default function LockersTab() {
         {
           text: "Löschen",
           style: "destructive",
-          onPress: async () => {
-            const { error } = await supabase
-              .from("kln_lockers")
-              .delete()
-              .eq("id", cab.id);
-            if (error) Alert.alert("Fehler", error.message);
-            else load();
-          },
+          onPress: () =>
+            runAdminAction(async () => {
+              throwIfError(
+                await supabase.from("kln_lockers").delete().eq("id", cab.id),
+              );
+              await load();
+            }),
         },
       ],
     );
@@ -458,8 +466,10 @@ export default function LockersTab() {
             size={18}
             color="white"
           />
-          <Text style={{ color: "white", marginLeft: 8 }}>
-            Pi läuft mit HTTPS (TLS)
+          <Text style={{ color: "white", marginLeft: 8, flex: 1 }}>
+            {https
+              ? "Pi läuft mit HTTPS (TLS)"
+              : "Ohne HTTPS: nur zum Entwickeln, im echten Betrieb blockiert"}
           </Text>
         </TouchableOpacity>
 

@@ -54,7 +54,7 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="controll"
+        name="control"
         options={{
           title: "Steuerung",
           tabBarIcon: ({ color, size }) => (

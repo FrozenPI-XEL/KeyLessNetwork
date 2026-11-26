@@ -6,7 +6,7 @@ import CodesTab from "../../components/admin/CodesTab";
 import LockersTab from "../../components/admin/LockersTab";
 
 // Admin-Tab (nur für Admins sichtbar). Alles, was Nutzer, Codes und Locker verwaltet, liegt hier
-// in src/components/admin/. Die Nutzer-Seite (Steuerung) ist controll.tsx.
+// in src/components/admin/. Die Nutzer-Seite (Steuerung) ist control.tsx.
 // Die eigentliche Absicherung macht die Datenbank (Row Level Security), die Anzeige hier ist nur Komfort.
 
 type AdminTabKey = "users" | "codes" | "lockers";
@@ -18,7 +18,7 @@ const TABS: { key: AdminTabKey; label: string }[] = [
 ];
 
 export default function AdminPanel() {
-  const isadmin = useAuthStore((s: any) => s.isadmin);
+  const isadmin = useAuthStore((s) => s.isadmin);
   const [activeTab, setActiveTab] = useState<AdminTabKey>("users");
 
   if (!isadmin) {

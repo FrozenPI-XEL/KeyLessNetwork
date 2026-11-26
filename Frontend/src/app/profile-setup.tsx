@@ -1,21 +1,19 @@
-import { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  Animated,
-  Alert,
-} from "react-native";
+import { useState } from "react";
+import { View, Text, Pressable, Alert } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../hooks/supabase-client";
-import { usernameToEmail, MAX_USERNAME_LENGTH } from "../store/authStore";
+import {
+  usernameToEmail,
+  MAX_USERNAME_LENGTH,
+  MIN_PASSWORD_LENGTH,
+} from "../store/authStore";
+import FloatingInput from "../components/FloatingInput";
 
 type ProfileData = {
   username: string;
-  code2: string;
+  password: string;
 };
 
 export default function ProfileSetupPage() {
@@ -65,8 +63,10 @@ export default function ProfileSetupPage() {
       return;
     }
 
-    if (!data.code2 || data.code2.length !== 8) {
-      setError("Der Code muss 8 Zeichen lang sein!");
+    if (!data.password || data.password.length < MIN_PASSWORD_LENGTH) {
+      setError(
+        `Das Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen lang sein!`,
+      );
       return;
     }
 
@@ -77,7 +77,7 @@ export default function ProfileSetupPage() {
       // prüft und verbraucht die Datenbank selbst (Trigger kln_handle_new_user).
       const { error: signUpError } = await supabase.auth.signUp({
         email: usernameToEmail(data.username),
-        password: data.code2,
+        password: data.password,
         options: {
           data: { username: data.username.trim(), invite_code: code },
         },
@@ -93,7 +93,6 @@ export default function ProfileSetupPage() {
             : "Registrierung fehlgeschlagen. Code ungültig, bereits verwendet oder Benutzername nicht erlaubt.",
         );
         console.error(signUpError);
-        setIsLoading(false);
         return;
       }
 
@@ -106,9 +105,9 @@ export default function ProfileSetupPage() {
     } catch (err) {
       setError("Ein Fehler ist aufgetreten. Bitte versuche es später erneut.");
       console.error(err);
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   return (
@@ -132,7 +131,8 @@ export default function ProfileSetupPage() {
         Profil erstellen
       </Text>
       <Text style={{ color: "#9ca3af", marginBottom: 32, textAlign: "center" }}>
-        Erstelle deinen Benutzernamen und einen persönlichen Code
+        Wähle einen Benutzernamen und ein Passwort (mindestens{" "}
+        {MIN_PASSWORD_LENGTH} Zeichen)
       </Text>
 
       <View style={{ width: "100%", marginTop: 40 }}>
@@ -159,29 +159,30 @@ export default function ProfileSetupPage() {
       <View style={{ width: "100%" }}>
         <Controller
           control={control}
-          name="code2"
+          name="password"
           rules={{
-            required: "Code ist erforderlich",
-            minLength: { value: 8, message: "Code muss 8 Zeichen lang sein" },
-            maxLength: {
-              value: 8,
-              message: "Code darf maximal 8 Zeichen lang sein",
+            required: "Passwort ist erforderlich",
+            minLength: {
+              value: MIN_PASSWORD_LENGTH,
+              message: `Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen lang sein`,
             },
           }}
           render={({ field: { onChange, value } }) => (
             <FloatingInput
-              label="Persönlicher Code (Passwort)"
+              label="Passwort"
               icon="lock-closed"
               value={value}
               onChangeText={onChange}
-              secureTextEntry={true}
+              secure
+              textContentType="newPassword"
+              autoComplete="new-password"
             />
           )}
         />
       </View>
-      {errors.code2 && (
+      {errors.password && (
         <Text style={{ color: "#f87171", marginBottom: 16 }}>
-          {errors.code2.message}
+          {errors.password.message}
         </Text>
       )}
 
@@ -232,79 +233,3 @@ export default function ProfileSetupPage() {
     </View>
   );
 }
-
-const FloatingInput = ({
-  label,
-  value,
-  onChangeText,
-  secureTextEntry,
-  icon,
-  placeholder,
-}: {
-  label: string;
-  value?: string;
-  onChangeText: (text: string) => void;
-  secureTextEntry?: boolean;
-  icon: keyof typeof Ionicons.glyphMap;
-  placeholder?: string;
-}) => {
-  const [isFocused, setIsFocused] = useState(false);
-  const animatedValue = useState(() => new Animated.Value(value ? 1 : 0))[0];
-
-  useEffect(() => {
-    Animated.timing(animatedValue, {
-      toValue: isFocused || value ? 1 : 0,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
-  }, [isFocused, value, animatedValue]);
-
-  const labelAnimStyle = {
-    position: "absolute" as const,
-    left: 40,
-    top: animatedValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: [18, -8],
-    }),
-    fontSize: animatedValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: [16, 12],
-    }),
-    color: "#aaa",
-  };
-
-  return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        borderBottomWidth: 2,
-        borderBottomColor: "#475569",
-        marginBottom: 24,
-        width: "100%",
-        paddingBottom: 8,
-      }}
-    >
-      <Ionicons name={icon} size={20} color="#666" style={{ marginRight: 8 }} />
-      <View style={{ flex: 1 }}>
-        <Animated.Text style={labelAnimStyle}>{label}</Animated.Text>
-        <TextInput
-          style={{
-            height: 40,
-            fontSize: 20,
-            color: "white",
-          }}
-          value={value}
-          placeholder={placeholder}
-          placeholderTextColor="#555"
-          secureTextEntry={secureTextEntry || false}
-          onChangeText={onChangeText}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-      </View>
-    </View>
-  );
-};

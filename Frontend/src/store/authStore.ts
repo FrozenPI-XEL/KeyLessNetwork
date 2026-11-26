@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+// Hier liegt nur, ob/als wer man eingeloggt ist (Anzeige). Die eigentliche Sitzung samt Tokens
+// speichert der Supabase-Client verschlüsselt, siehe lib/secure-storage.ts.
 import { getItem, setItem, deleteItemAsync } from "expo-secure-store";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils";
 import { supabase } from "../hooks/supabase-client";
@@ -11,6 +13,8 @@ export const usernameToEmail = (username: string) =>
   `${bytesToHex(utf8ToBytes(username.trim().toLowerCase()))}@kln-users.example.com`;
 
 export const MAX_USERNAME_LENGTH = 24;
+// Gleicher Wert gehört in Supabase unter Authentication > "Minimum password length" (serverseitige Prüfung).
+export const MIN_PASSWORD_LENGTH = 10;
 
 type UserState = {
   isLoggedIn: boolean;
