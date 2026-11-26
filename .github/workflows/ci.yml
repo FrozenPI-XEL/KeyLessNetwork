@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+      - run: npm ci
+      - name: Keine Konfliktmarker
+        working-directory: .
+        run: "! git grep -nE '^(<<<<<<<|=======|>>>>>>>)( |$)' -- . ':!*.md'"
+      - run: npm run typecheck
+      - run: npm run lint
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Pakete (ohne Pi-Hardware-Bibliotheken)
+        run: pip install fastapi "uvicorn[standard]" pytest
+      - run: python -m py_compile main.py
+      - run: python -m pytest -q
+
+  sql:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: setup.sql zweimal ausführen und Szenarien prüfen
+        run: |
+          psql -v ON_ERROR_STOP=1 -q -f Supabase/tests/auth_stub.sql
+          psql -v ON_ERROR_STOP=1 -q -f Supabase/setup.sql
+          psql -v ON_ERROR_STOP=1 -q -f Supabase/setup.sql
+          psql -v ON_ERROR_STOP=1 -q -f Supabase/tests/test_setup.sql
