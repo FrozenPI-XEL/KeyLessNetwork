@@ -12,6 +12,13 @@ if [ ! -f /home/pi/projects/locker.json ]; then
   exit 1
 fi
 
+if [ ! -f /home/pi/projects/certs/server.crt ] || [ ! -f /home/pi/projects/certs/server.key ]; then
+  echo "Fehler: TLS-Zertifikat fehlt (/home/pi/projects/certs/server.crt und server.key)." >&2
+  echo "Auf dem PC 'bash Backend/deploy/make-certs.sh <IP des Pi>' ausführen und die Dateien kopieren." >&2
+  exit 1
+fi
+chmod 600 /home/pi/projects/certs/server.key
+
 sudo cp "$SRC" /etc/systemd/system/$SERVICE
 sudo systemctl daemon-reload
 sudo systemctl enable --now systemd-time-wait-sync.service 2>/dev/null || true

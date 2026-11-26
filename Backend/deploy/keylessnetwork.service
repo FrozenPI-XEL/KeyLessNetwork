@@ -13,9 +13,12 @@ Type=simple
 User=pi
 WorkingDirectory=/home/pi/projects
 ExecStart=/usr/bin/python3 /home/pi/projects/main.py
-# Optional für HTTPS: in /home/pi/projects/kln.env eintragen
-#   KLN_TLS_CERT=/home/pi/certs/cert.pem
-#   KLN_TLS_KEY=/home/pi/certs/key.pem
+# TLS ist Pflicht: Zertifikat liegt in /home/pi/projects/certs/server.crt und server.key
+# (erzeugt mit deploy/make-certs.sh). Ohne Zertifikat startet der Server nicht.
+# Optionale Einstellungen in /home/pi/projects/kln.env, z. B.
+#   KLN_MOTOR_SECONDS=2          Motorlaufzeit in Sekunden (Standard 0.1, auf der Hardware prüfen)
+#   KLN_TLS_CERT=/anderer/pfad/server.crt
+#   KLN_TLS_KEY=/anderer/pfad/server.key
 EnvironmentFile=-/home/pi/projects/kln.env
 Environment=PYTHONUNBUFFERED=1
 Restart=on-failure

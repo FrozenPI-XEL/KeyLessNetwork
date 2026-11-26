@@ -130,8 +130,42 @@ if platform.system() == "Windows" or os.environ.get("KLN_CORS") == "1":
         expose_headers=["X-Response-Timestamp", "X-Response-Signature"],
     )
 
-MOTOR_RUN_SECONDS = 0.1
+
+
+def _motor_run_seconds() -> float:
+    """Wie lange der Motor beim Öffnen/Schließen läuft. Standard 0,1 s (Commit "raspi", vorher 2 s).
+    Auf echter Hardware prüfen und bei Bedarf in kln.env setzen, z. B. KLN_MOTOR_SECONDS=2"""
+    try:
+        value = float(os.environ.get("KLN_MOTOR_SECONDS", "0.1"))
+    except ValueError:
+        value = 0.1
+    return max(0.05, min(5.0, value))
+
+
+MOTOR_RUN_SECONDS = _motor_run_seconds()
 LED_ACTIVE_SECONDS = 1.5
+
+# ---------------------------------------------------------------------------
+# TLS ist Pflicht. Ohne TLS kann jeder im WLAN das Supabase-Login-Token mitlesen und damit bei
+# Supabase den Lockerschlüssel abholen. Unverschlüsseltes HTTP nur zum Entwickeln:
+#   KLN_ALLOW_HTTP=1   (unter Windows, also in der Simulation, automatisch erlaubt)
+# ---------------------------------------------------------------------------
+ALLOW_HTTP = os.environ.get("KLN_ALLOW_HTTP") == "1" or platform.system() == "Windows"
+DEFAULT_CERT = Path(__file__).with_name("certs") / "server.crt"
+DEFAULT_KEY = Path(__file__).with_name("certs") / "server.key"
+
+
+@app.middleware("http")
+async def require_tls(request: Request, call_next):
+    if request.url.scheme != "https" and not ALLOW_HTTP:
+        return Response(
+            content=b'{"detail":"HTTPS required"}',
+            status_code=426,
+            media_type="application/json",
+            headers={"Upgrade": "TLS/1.2, HTTP/1.1", "Connection": "Upgrade"},
+        )
+    return await call_next(request)
+
 
 GPIO.setmode(GPIO.BCM)
 
@@ -206,23 +240,43 @@ pixels = neopixel.NeoPixel(
     LED_PIN, NUM_LEDS, brightness=0.3, auto_write=True, pixel_order=neopixel.GRBW
 )
 led_lock = threading.Lock()
-animation_thread = None
-stop_animation = False
+LED_STEP_SECONDS = 0.2
 
 
-def rotate_led(color):
-    global stop_animation
-    stop_animation = False
-    while not stop_animation:
-        for i in range(NUM_LEDS):
-            if stop_animation:
-                break
-            with led_lock:
-                pixels.fill((0, 0, 0, 0))
-                pixels[i] = color
-            time.sleep(0.2)
-    with led_lock:
-        pixels.fill((0, 0, 0, 0))
+class LedAnimation:
+    """Lauflicht während der Motor läuft. Jede Animation hat ihr eigenes Stop-Event.
+
+    Früher gab es ein globales stop_animation, das der Thread beim Start auf False zurücksetzte.
+    Startete der Thread erst, nachdem der Handler schon True gesetzt hatte, lief die Animation
+    endlos und join() hing mit gehaltenem motor_lock. Mit einem eigenen Event pro Animation kann
+    ein Stop nicht mehr verloren gehen, egal wann der Thread tatsächlich startet."""
+
+    def __init__(self, color):
+        self._color = color
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+    def start(self) -> "LedAnimation":
+        self._thread.start()
+        return self
+
+    def stop(self) -> None:
+        self._stop.set()
+        # Zeitlimit als zweite Sicherung: der Handler darf nie für immer hängen.
+        self._thread.join(timeout=LED_STEP_SECONDS * 2 + 1)
+
+    def _run(self) -> None:
+        while not self._stop.is_set():
+            for i in range(NUM_LEDS):
+                if self._stop.is_set():
+                    break
+                with led_lock:
+                    pixels.fill((0, 0, 0, 0))
+                    pixels[i] = self._color
+                if self._stop.wait(LED_STEP_SECONDS):
+                    break
+        with led_lock:
+            pixels.fill((0, 0, 0, 0))
 
 
 def set_status_leds(state: str | None = None, duration: float | None = None):
@@ -492,86 +546,44 @@ def health(auth: Auth = Depends(authenticate)):
     return signed_response(auth, {"status": "ok", "motors": list(motors.keys())})
 
 
-@app.post("/lock/{lock_id}/open")
-def open_lock(lock_id: int, auth: Auth = Depends(authenticate)):
-    global animation_thread, stop_animation
-
+def _move_lock(lock_id: int, target: str, auth: Auth) -> Response:
     if lock_id not in motors:
         return signed_response(auth, {"success": False, "error": "Invalid lock"})
 
     with motor_lock:
         m = motors[lock_id]
-
-        if m["state"] == "open":
+        if m["state"] == target:
+            other = "Close" if target == "open" else "Open"
             return signed_response(
                 auth,
-                {"success": False, "error": "Motor is already open. Close it first."},
+                {"success": False, "error": f"Motor is already {target}. {other} it first."},
             )
 
-        stop_animation = True
-        if animation_thread:
-            animation_thread.join()
+        color = (0, 255, 0, 0) if target == "open" else (255, 0, 0, 0)
+        animation = LedAnimation(color).start()
+        try:
+            if target == "open":
+                motor_open(m)
+            else:
+                motor_close(m)
+            time.sleep(MOTOR_RUN_SECONDS)
+        finally:
+            motor_stop(m)
+            animation.stop()
 
-        animation_thread = threading.Thread(
-            target=rotate_led,
-            args=((0, 255, 0, 0),)
-        )
-        animation_thread.start()
-
-        motor_open(m)
-        time.sleep(MOTOR_RUN_SECONDS)
-        motor_stop(m)
-
-        m["state"] = "open"
-
-        stop_animation = True
-        animation_thread.join()
+        m["state"] = target
         set_status_leds(m["state"], duration=LED_ACTIVE_SECONDS)
+        return signed_response(auth, {"success": True, "lock": lock_id, "state": m["state"]})
 
-        return signed_response(
-            auth, {"success": True, "lock": lock_id, "state": m["state"]}
-        )
+
+@app.post("/lock/{lock_id}/open")
+def open_lock(lock_id: int, auth: Auth = Depends(authenticate)):
+    return _move_lock(lock_id, "open", auth)
 
 
 @app.post("/lock/{lock_id}/close")
 def close_lock(lock_id: int, auth: Auth = Depends(authenticate)):
-    global animation_thread, stop_animation
-
-    if lock_id not in motors:
-        return signed_response(auth, {"success": False, "error": "Invalid lock"})
-
-    with motor_lock:
-        m = motors[lock_id]
-
-        if m["state"] == "closed":
-            return signed_response(
-                auth,
-                {"success": False, "error": "Motor is already closed. Open it first."},
-            )
-
-        stop_animation = True
-        if animation_thread:
-            animation_thread.join()
-
-        animation_thread = threading.Thread(
-            target=rotate_led,
-            args=((255, 0, 0, 0),)
-        )
-        animation_thread.start()
-
-        motor_close(m)
-        time.sleep(MOTOR_RUN_SECONDS)
-        motor_stop(m)
-
-        m["state"] = "closed"
-
-        stop_animation = True
-        animation_thread.join()
-        set_status_leds(m["state"], duration=LED_ACTIVE_SECONDS)
-
-        return signed_response(
-            auth, {"success": True, "lock": lock_id, "state": m["state"]}
-        )
+    return _move_lock(lock_id, "closed", auth)
 
 
 @app.get("/lock/{lock_id}/status")
@@ -585,18 +597,29 @@ def lock_status(lock_id: int, auth: Auth = Depends(authenticate)):
 
 
 # ===========================================================================
-# Start:  python main.py   (oder wie bisher:  uvicorn main:app --host 0.0.0.0 --port 8443)
-# Optional mit TLS über KLN_TLS_CERT / KLN_TLS_KEY.
+# Start:  python main.py
+#   Zertifikat: certs/server.crt + certs/server.key neben main.py (siehe deploy/make-certs.sh)
+#   oder Pfade über KLN_TLS_CERT / KLN_TLS_KEY.
+# Mit uvicorn direkt:
+#   uvicorn main:app --host 0.0.0.0 --port 8443 --ssl-certfile certs/server.crt --ssl-keyfile certs/server.key
+# Nur zum Entwickeln ohne TLS: KLN_ALLOW_HTTP=1 python main.py
 # ===========================================================================
 if __name__ == "__main__":
     import uvicorn
 
     if _load_config() is None:
         sys.exit("Noch nicht eingerichtet. Erst: python main.py init --supabase-url ... --anon-key ...")
-    cert = os.environ.get("KLN_TLS_CERT")
-    key = os.environ.get("KLN_TLS_KEY")
-    if cert and key:
-        uvicorn.run(app, host="0.0.0.0", port=8443, ssl_certfile=cert, ssl_keyfile=key)
+    cert = Path(os.environ.get("KLN_TLS_CERT") or DEFAULT_CERT)
+    key = Path(os.environ.get("KLN_TLS_KEY") or DEFAULT_KEY)
+    port = int(os.environ.get("KLN_PORT", "8443"))
+    if cert.is_file() and key.is_file():
+        uvicorn.run(app, host="0.0.0.0", port=port, ssl_certfile=str(cert), ssl_keyfile=str(key))
+    elif ALLOW_HTTP:
+        print("WARNUNG: Start OHNE TLS (nur zum Entwickeln). Login-Tokens gehen unverschlüsselt durchs Netz.")
+        uvicorn.run(app, host="0.0.0.0", port=port)
     else:
-        print("Hinweis: Start ohne TLS. Der Lockerschlüssel wird nie übertragen, TLS ist trotzdem empfohlen.")
-        uvicorn.run(app, host="0.0.0.0", port=8443)
+        sys.exit(
+            f"Kein TLS-Zertifikat gefunden ({cert}, {key}).\n"
+            "Zertifikat erzeugen: siehe Backend/deploy/make-certs.sh und ABNAHME_CHECKLISTE.md, Abschnitt K.\n"
+            "Nur zum Entwickeln ohne TLS: KLN_ALLOW_HTTP=1 python main.py"
+        )
