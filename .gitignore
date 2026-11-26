@@ -9,6 +9,8 @@ Backend/locker*.json
 
 # Editor-Einstellungen sind persönlich
 .vscode/
+.git
+.github
 
 # TLS: Zertifikate und Schlüssel der Pis und der CA nie ins Repo
 Backend/certs/
@@ -17,3 +19,5 @@ Backend/kln.env
 
 # Python-Testcache
 .pytest_cache/
+
+DOKU.md
